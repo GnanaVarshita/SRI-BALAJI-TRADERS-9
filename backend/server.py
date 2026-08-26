@@ -464,6 +464,33 @@ class APIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json(500, {"success": False, "message": f"FMC PO Summary generation failed: {e}"})
 
+    def handle_generate_fmc_step2_local(self, data):
+        try:
+            import fmc_step2_generator
+            excel_path_str = data.get("excelPath", "").strip()
+            territory = data.get("territory", "").strip() or "Nandyala"
+            am_name = data.get("amName", "").strip() or "Madhavareddy"
+            
+            if not excel_path_str:
+                self.send_json(400, {"success": False, "message": "Excel file path is required"})
+                return
+                
+            excel_path = Path(excel_path_str)
+            if not excel_path.exists() or not excel_path.is_file():
+                self.send_json(400, {"success": False, "message": f"Excel file does not exist at: {excel_path_str}"})
+                return
+
+            n_pos, n_sheets = fmc_step2_generator.generate_fmc_step2_summaries(excel_path, territory, am_name)
+            
+            msg = f"Generated {n_sheets} summary card sheet(s) for {n_pos} POs in {excel_path.name}!"
+            self.send_json(200, {
+                "success": True,
+                "message": msg,
+                "outputPath": str(excel_path)
+            })
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"FMC Step 2 Summary generation failed: {e}"})
+
     def handle_api_post(self, path, body_bytes, content_type):
         global is_syncing, sync_thread
         
@@ -494,6 +521,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/generate-fmc-summary':
             self.handle_generate_fmc_summary_local(data)
+            return
+
+        if path == '/api/generate-fmc-step2':
+            self.handle_generate_fmc_step2_local(data)
             return
 
         if path == '/api/config':

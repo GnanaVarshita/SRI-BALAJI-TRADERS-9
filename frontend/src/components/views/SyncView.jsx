@@ -12,7 +12,7 @@ function SyncView({ isSyncing, logs, consoleRef, onStartSync }) {
       <div className="card">
         <h2>Operations</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
-          This will scan your target Gmail labels (e.g. <code>CORTEVA/...</code> and <code>NEW GEN/...</code>) for purchase orders sent by <strong>ordersender-prod@ansmtp.ariba.com</strong> and organize their attachments locally.
+          This will scan your target Gmail labels (e.g. <code>CORTEVA/...</code> and <code>FMC/...</code>)
         </p>
         <button 
           className="primary" 

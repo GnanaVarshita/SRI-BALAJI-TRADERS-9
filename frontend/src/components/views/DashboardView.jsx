@@ -35,9 +35,7 @@ function DashboardView({ isSyncing, totalSynced, onOpenFolder }) {
           <button className="primary" onClick={() => onOpenFolder('corteva')}>
             📂 Open Corteva POs
           </button>
-          <button className="primary" onClick={() => onOpenFolder('newgen')}>
-            📂 Open New Gen POs
-          </button>
+          
           <button className="primary" onClick={() => onOpenFolder('fmc')}>
             📂 Open FMC POs
           </button>
