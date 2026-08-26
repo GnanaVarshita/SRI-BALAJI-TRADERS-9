@@ -131,7 +131,10 @@ def process_mailbox(mail, mailbox_name, processed_db):
     company_folder = WORKSPACE_DIR / f"{company_title} POs"
     year_folder = company_folder / f"{company_title} {year_range}"
     area_folder = year_folder / f"{area_title} {year_range}"
-    target_folder = area_folder / f"{area_title} POs PDF"
+    if company_title.upper() == "FMC":
+        target_folder = area_folder / f"{area_title} FMC POs PDF"
+    else:
+        target_folder = area_folder / f"{area_title} POs PDF"
 
     # Ensure target directory exists
     target_folder.mkdir(parents=True, exist_ok=True)
