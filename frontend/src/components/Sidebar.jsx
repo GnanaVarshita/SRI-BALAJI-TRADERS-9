@@ -1,11 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import logoImg from '../assets/logo.png';
 
 function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <span className="logo-icon">🌳</span>
+        <img src={logoImg} alt="Sri Balaji Traders Logo" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
         <h2>Sri Balaji Traders</h2>
       </div>
       <nav className="sidebar-nav">
