@@ -14,7 +14,7 @@ PROCESSED_DB_PATH = WORKSPACE_DIR / "processed_emails.json"
 IMAP_SERVER = "imap.gmail.com"
 
 # Root labels to watch (case-insensitive)
-TARGET_ROOT_LABELS = ["CORTEVA", "NEW GEN"]
+TARGET_ROOT_LABELS = ["CORTEVA", "NEW GEN", "FMC"]
 
 def load_env(path):
     """Load environment variables from a .env file."""
@@ -118,7 +118,10 @@ def process_mailbox(mail, mailbox_name, processed_db):
 
     # Standardize names to Title Case for folder names
     company_title = root_label.title()  # E.g. "Corteva" or "New Gen"
-    area_title = area.title()          # E.g. "Suryapet"
+    
+    # Clean up area if it has "-FMC" suffix (e.g. NELLORE-FMC -> NELLORE)
+    clean_area = re.sub(r'-FMC$', '', area, flags=re.IGNORECASE).strip()
+    area_title = clean_area.title()          # E.g. "Suryapet" or "Nellore"
 
     # Construct the organized directories:
     # 1. D:\SRI BALAJI TRADERS\<Company> POs
@@ -202,8 +205,13 @@ def process_mailbox(mail, mailbox_name, processed_db):
             from_name, from_email = parseaddr(from_header)
             from_email = from_email.strip().lower()
 
-            # Check if sender is correct
-            target_sender = "ordersender-prod@ansmtp.ariba.com"
+            # Check if sender is correct based on company
+            company = root_label.upper()
+            if company == "FMC":
+                target_sender = "newgen.fmc@gmail.com"
+            else:
+                target_sender = "ordersender-prod@ansmtp.ariba.com"
+                
             if from_email != target_sender:
                 # Skip and mark as processed so we don't query it again
                 processed_db[mailbox_name].append(uid)

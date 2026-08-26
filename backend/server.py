@@ -135,7 +135,7 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def scan_downloads(self):
         files = []
-        target_dirs = ["Corteva POs", "New Gen POs"]
+        target_dirs = ["Corteva POs", "New Gen POs", "FMC POs"]
         for t_dir in target_dirs:
             root_dir = WORKSPACE_DIR / t_dir
             if not root_dir.exists():
@@ -186,7 +186,7 @@ class APIHandler(BaseHTTPRequestHandler):
             return
 
         allowed = False
-        for allowed_dir in ["Corteva POs", "New Gen POs"]:
+        for allowed_dir in ["Corteva POs", "New Gen POs", "FMC POs"]:
             allowed_abs = (WORKSPACE_DIR / allowed_dir).resolve()
             if str(file_abs_path).startswith(str(allowed_abs)):
                 allowed = True
@@ -405,7 +405,7 @@ class APIHandler(BaseHTTPRequestHandler):
             
             self.send_json(200, {
                 "success": True,
-                "message": f"Corteva POs Summary sheet generated successfully as {output_name}!",
+                "message": f"PO Summary sheet generated successfully as {output_name}!",
                 "outputPath": str(output_path)
             })
         except Exception as e:
@@ -495,6 +495,8 @@ class APIHandler(BaseHTTPRequestHandler):
                 folder_path = WORKSPACE_DIR / "Corteva POs"
             elif folder_type == "newgen":
                 folder_path = WORKSPACE_DIR / "New Gen POs"
+            elif folder_type == "fmc":
+                folder_path = WORKSPACE_DIR / "FMC POs"
             else:
                 self.send_json(400, {"success": False, "message": "Invalid folder type"})
                 return

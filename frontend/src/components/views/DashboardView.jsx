@@ -31,12 +31,15 @@ function DashboardView({ isSyncing, totalSynced, onOpenFolder }) {
         <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
           Open your downloaded PO directories directly on your local computer's Windows Explorer:
         </p>
-        <div className="button-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div className="button-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           <button className="primary" onClick={() => onOpenFolder('corteva')}>
             📂 Open Corteva POs
           </button>
           <button className="primary" onClick={() => onOpenFolder('newgen')}>
             📂 Open New Gen POs
+          </button>
+          <button className="primary" onClick={() => onOpenFolder('fmc')}>
+            📂 Open FMC POs
           </button>
         </div>
       </div>

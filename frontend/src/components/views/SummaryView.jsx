@@ -142,8 +142,8 @@ function SummaryView() {
   return (
     <div className="view-container">
       <div className="view-header">
-        <h2>Corteva POs Summary Generator</h2>
-        <p className="subtitle">Select your generated quotation Excel, choose a custom save folder, and generate a brand-new tracking summary workbook.</p>
+        <h2>PO Summary Generator</h2>
+        <p className="subtitle">Convert a quotation excel file into a tracking PO Summary excel sheet.</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
