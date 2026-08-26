@@ -142,11 +142,11 @@ function SummaryView() {
   return (
     <div className="view-container">
       <div className="view-header">
-        <h2>PO Summary Generator</h2>
+        <h2>Corteva PO Summary Generator</h2>
         <p className="subtitle">Convert a quotation excel file into a tracking PO Summary excel sheet.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
         {/* Settings Form Card */}
         <div className="card">
           <h2>Summary Configuration</h2>

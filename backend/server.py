@@ -411,6 +411,59 @@ class APIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json(500, {"success": False, "message": f"PO Summary generation failed: {e}"})
 
+    def handle_generate_fmc_summary_local(self, data):
+        try:
+            import fmc_summary_generator
+            input_folder_str = data.get("inputFolderPath", "").strip()
+            save_folder_str = data.get("saveFolderPath", "").strip()
+            output_name = data.get("outputName", "").strip()
+            territory = data.get("territory", "").strip()
+            am_name = data.get("amName", "").strip() or "Madhavareddy"
+            
+            if not input_folder_str:
+                self.send_json(400, {"success": False, "message": "Input FMC PDF folder path is required"})
+                return
+            if not save_folder_str:
+                self.send_json(400, {"success": False, "message": "Save folder path is required"})
+                return
+                
+            input_folder = Path(input_folder_str)
+            if not input_folder.exists() or not input_folder.is_dir():
+                self.send_json(400, {"success": False, "message": f"Input folder does not exist at: {input_folder_str}"})
+                return
+                
+            save_folder = Path(save_folder_str)
+            if not save_folder.exists() or not save_folder.is_dir():
+                self.send_json(400, {"success": False, "message": f"Save folder does not exist at: {save_folder_str}"})
+                return
+                
+            if not territory:
+                folder_name = input_folder.name
+                match = re.match(r'([a-zA-Z]+)', folder_name)
+                if match:
+                    territory = match.group(1).title()
+                else:
+                    territory = "Nandyala"
+
+            if not output_name:
+                output_name = f"{territory} FMC Budget.xlsx"
+                
+            if not output_name.lower().endswith('.xlsx'):
+                output_name += ".xlsx"
+                
+            output_path = save_folder / output_name
+            
+            new_added = fmc_summary_generator.generate_fmc_summary(input_folder, output_path, territory, am_name)
+            
+            msg = f"FMC PO Summary generated successfully as {output_name}! ({new_added} new POs processed)"
+            self.send_json(200, {
+                "success": True,
+                "message": msg,
+                "outputPath": str(output_path)
+            })
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"FMC PO Summary generation failed: {e}"})
+
     def handle_api_post(self, path, body_bytes, content_type):
         global is_syncing, sync_thread
         
@@ -437,6 +490,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/generate-summary':
             self.handle_generate_po_summary_local(data)
+            return
+
+        if path == '/api/generate-fmc-summary':
+            self.handle_generate_fmc_summary_local(data)
             return
 
         if path == '/api/config':

@@ -23,12 +23,6 @@ function Sidebar() {
           <span className="nav-icon">🔄</span> Gmail Sync
         </NavLink>
         <NavLink 
-          to="/explorer" 
-          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-        >
-          <span className="nav-icon">📁</span> PO Explorer
-        </NavLink>
-        <NavLink 
           to="/quotation" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >
@@ -38,7 +32,13 @@ function Sidebar() {
           to="/summary" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >
-          <span className="nav-icon">📋</span> PO Summary
+          <span className="nav-icon">📋</span> Corteva PO Summary
+        </NavLink>
+        <NavLink 
+          to="/fmc-summary" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">📊</span> FMC PO Summary
         </NavLink>
         <NavLink 
           to="/settings" 
