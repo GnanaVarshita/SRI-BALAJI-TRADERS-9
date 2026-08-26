@@ -29,6 +29,18 @@ function Sidebar() {
           <span className="nav-icon">📁</span> PO Explorer
         </NavLink>
         <NavLink 
+          to="/quotation" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">📝</span> Quotation Gen
+        </NavLink>
+        <NavLink 
+          to="/summary" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">📋</span> PO Summary
+        </NavLink>
+        <NavLink 
           to="/settings" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >

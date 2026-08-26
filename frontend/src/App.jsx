@@ -7,6 +7,8 @@ import Toast from './components/Toast';
 import DashboardView from './components/views/DashboardView';
 import SyncView from './components/views/SyncView';
 import ExplorerView from './components/views/ExplorerView';
+import QuotationView from './components/views/QuotationView';
+import SummaryView from './components/views/SummaryView';
 import SettingsView from './components/views/SettingsView';
 
 function App() {
@@ -172,6 +174,14 @@ function App() {
             <Route 
               path="/explorer" 
               element={<ExplorerView />} 
+            />
+            <Route 
+              path="/quotation" 
+              element={<QuotationView />} 
+            />
+            <Route 
+              path="/summary" 
+              element={<SummaryView />} 
             />
             <Route 
               path="/settings" 

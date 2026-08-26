@@ -2,31 +2,25 @@ import os
 import sys
 import json
 import threading
+import queue
 import urllib.parse
 import re
 import datetime
+import shutil
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Add current directory to path so we can import download_attachments
+# Add current directory to path so we can import modules
 BACKEND_DIR = Path(__file__).resolve().parent
 sys.path.append(str(BACKEND_DIR))
 
 import download_attachments
+import excel_processor
+from config import WORKSPACE_DIR, ENV_PATH, PROCESSED_DB_PATH
+import state
 
-# Configurations
-WORKSPACE_DIR = Path("D:/SRI BALAJI TRADERS")
-ENV_PATH = WORKSPACE_DIR / ".env"
-PROCESSED_DB_PATH = WORKSPACE_DIR / "processed_emails.json"
 DIST_DIR = WORKSPACE_DIR / "frontend/dist"
-
 PORT = 5000
-
-# Global state
-LOGS_BUFFER = []
-LOGS_LOCK = threading.Lock()
-is_syncing = False
-sync_thread = None
 
 class WebLogRedirector:
     def __init__(self, old_stream):
@@ -39,10 +33,8 @@ class WebLogRedirector:
             line, self.line_buffer = self.line_buffer.split("\n", 1)
             line = line.strip()
             if line:
-                with LOGS_LOCK:
-                    LOGS_BUFFER.append(line)
-                    if len(LOGS_BUFFER) > 1000:
-                        LOGS_BUFFER.pop(0)
+                with state.LOGS_LOCK:
+                    state.LOGS_BUFFER.append(line)
     def flush(self):
         self.old_stream.flush()
 
@@ -51,13 +43,12 @@ sys.stdout = WebLogRedirector(sys.stdout)
 sys.stderr = WebLogRedirector(sys.stderr)
 
 def run_sync_task():
-    global is_syncing
     try:
         download_attachments.main()
     except Exception as e:
         print(f"Sync thread crashed: {e}")
     finally:
-        is_syncing = False
+        state.is_syncing = False
 
 def get_content_type(file_path):
     suffix = file_path.suffix.lower()
@@ -104,10 +95,10 @@ class APIHandler(BaseHTTPRequestHandler):
         path = parsed_url.path
 
         if path.startswith('/api/'):
-            # Read request body
             content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else ""
-            self.handle_api_post(path, body)
+            content_type = self.headers.get('Content-Type', '')
+            body_bytes = self.rfile.read(content_length) if content_length > 0 else b""
+            self.handle_api_post(path, body_bytes, content_type)
         else:
             self.send_error(404, "Not Found")
 
@@ -231,10 +222,9 @@ class APIHandler(BaseHTTPRequestHandler):
             self.send_json(200, response)
 
         elif path == '/api/status':
-            global is_syncing
-            with LOGS_LOCK:
+            with state.LOGS_LOCK:
                 # Copy logs list
-                current_logs = list(LOGS_BUFFER)
+                current_logs = list(state.LOGS_BUFFER)
             
             # Simple count of downloaded files
             downloads_count = 0
@@ -247,7 +237,7 @@ class APIHandler(BaseHTTPRequestHandler):
                     pass
 
             response = {
-                "isSyncing": is_syncing,
+                "isSyncing": state.is_syncing,
                 "logs": current_logs,
                 "totalSynced": downloads_count
             }
@@ -263,13 +253,190 @@ class APIHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404, "Not Found")
 
-    def handle_api_post(self, path, body):
+    def handle_browse_file(self):
+        try:
+            q = queue.Queue()
+            def run_dialog():
+                try:
+                    import tkinter as tk
+                    from tkinter import filedialog
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes("-topmost", True)
+                    path = filedialog.askopenfilename(
+                        initialdir="D:/SRI BALAJI TRADERS",
+                        title="Select Budget Excel File",
+                        filetypes=[("Excel files", "*.xlsx")]
+                    )
+                    root.destroy()
+                    q.put(path)
+                except Exception as e:
+                    q.put(e)
+            
+            t = threading.Thread(target=run_dialog)
+            t.start()
+            t.join()
+            res = q.get()
+            if isinstance(res, Exception):
+                raise res
+                
+            self.send_json(200, {"success": True, "filePath": res})
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Browse failed: {e}"})
+
+    def handle_browse_folder(self):
+        try:
+            q = queue.Queue()
+            def run_dialog():
+                try:
+                    import tkinter as tk
+                    from tkinter import filedialog
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes("-topmost", True)
+                    path = filedialog.askdirectory(
+                        initialdir="D:/SRI BALAJI TRADERS",
+                        title="Select Save Folder"
+                    )
+                    root.destroy()
+                    q.put(path)
+                except Exception as e:
+                    q.put(e)
+            
+            t = threading.Thread(target=run_dialog)
+            t.start()
+            t.join()
+            res = q.get()
+            if isinstance(res, Exception):
+                raise res
+                
+            self.send_json(200, {"success": True, "folderPath": res})
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Browse folder failed: {e}"})
+
+    def handle_process_excel_local(self, data):
+        try:
+            file_path_str = data.get("filePath", "").strip()
+            if not file_path_str:
+                self.send_json(400, {"success": False, "message": "No file path provided"})
+                return
+
+            file_path = Path(file_path_str)
+            if not file_path.exists() or not file_path.is_file():
+                self.send_json(400, {"success": False, "message": f"File does not exist at: {file_path_str}"})
+                return
+
+            if not file_path_str.endswith('.xlsx'):
+                self.send_json(400, {"success": False, "message": "Please select a valid .xlsx Excel file"})
+                return
+
+            company = data.get('company', 'Corteva Agriscience').strip()
+            contact = data.get('contact', '').strip()
+            designation = data.get('designation', '').strip()
+            territory = data.get('territory', '').strip()
+            date_str = data.get('date', '').strip()
+            if not date_str:
+                date_str = datetime.date.today().strftime('%d-%m-%Y')
+
+            # 1. Validate the sheet (in-place)
+            validation_res = excel_processor.validate_budget_sheet(file_path)
+            
+            if not validation_res["rows"]:
+                self.send_json(400, {
+                    "success": False,
+                    "message": "The budget spreadsheet does not contain any valid data rows starting from row 12.",
+                    "errors": validation_res["errors"]
+                })
+                return
+
+            # 2. Append quotation sheets to the original file in-place
+            excel_processor.generate_quotations(file_path, company, contact, designation, territory, date_str)
+
+            self.send_json(200, {
+                "success": True,
+                "message": f"Quotation sheets generated and appended directly in-place to {file_path.name}!",
+                "valid": validation_res["success"],
+                "errors": validation_res["errors"],
+                "totals": validation_res["totals"]
+            })
+            
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Excel generation failed: {e}"})
+
+    def handle_generate_po_summary_local(self, data):
+        try:
+            input_path_str = data.get("inputPath", "").strip()
+            save_folder_str = data.get("saveFolderPath", "").strip()
+            output_name = data.get("outputName", "").strip()
+            po_number = data.get("poNumber", "").strip()
+            date_str = data.get("date", "").strip()
+            contact = data.get("contact", "").strip()
+            territory = data.get("territory", "").strip()
+            
+            if not input_path_str:
+                self.send_json(400, {"success": False, "message": "Input Quotation file path is required"})
+                return
+            if not save_folder_str:
+                self.send_json(400, {"success": False, "message": "Save folder path is required"})
+                return
+            if not output_name:
+                self.send_json(400, {"success": False, "message": "Output PO Summary file name is required"})
+                return
+                
+            input_path = Path(input_path_str)
+            if not input_path.exists() or not input_path.is_file():
+                self.send_json(400, {"success": False, "message": f"Input file does not exist at: {input_path_str}"})
+                return
+                
+            save_folder = Path(save_folder_str)
+            if not save_folder.exists() or not save_folder.is_dir():
+                self.send_json(400, {"success": False, "message": f"Save folder does not exist at: {save_folder_str}"})
+                return
+                
+            if not output_name.lower().endswith('.xlsx'):
+                output_name += ".xlsx"
+                
+            output_path = save_folder / output_name
+            
+            if not date_str:
+                date_str = datetime.date.today().strftime('%d-%m-%Y')
+                
+            excel_processor.generate_po_summary(input_path, output_path, po_number, date_str, contact, territory)
+            
+            self.send_json(200, {
+                "success": True,
+                "message": f"Corteva POs Summary sheet generated successfully as {output_name}!",
+                "outputPath": str(output_path)
+            })
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"PO Summary generation failed: {e}"})
+
+    def handle_api_post(self, path, body_bytes, content_type):
         global is_syncing, sync_thread
         
-        try:
-            data = json.loads(body) if body else {}
-        except Exception:
-            self.send_error(400, "Bad Request: Invalid JSON")
+        # Parse JSON if request content type is JSON
+        data = {}
+        if 'application/json' in content_type.lower() or not content_type:
+            try:
+                data = json.loads(body_bytes.decode('utf-8')) if body_bytes else {}
+            except Exception:
+                self.send_error(400, "Bad Request: Invalid JSON")
+                return
+
+        if path == '/api/browse-file':
+            self.handle_browse_file()
+            return
+
+        if path == '/api/browse-folder':
+            self.handle_browse_folder()
+            return
+
+        if path == '/api/process-excel':
+            self.handle_process_excel_local(data)
+            return
+
+        if path == '/api/generate-summary':
+            self.handle_generate_po_summary_local(data)
             return
 
         if path == '/api/config':
@@ -281,7 +448,6 @@ class APIHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                # Load current env first, in case they left password blank (meaning no change)
                 env_vars = download_attachments.load_env(ENV_PATH)
                 final_pass = pass_val if pass_val else env_vars.get("GMAIL_APP_PASSWORD", "")
 
@@ -293,22 +459,21 @@ class APIHandler(BaseHTTPRequestHandler):
                 self.send_json(500, {"success": False, "message": f"Failed to save: {e}"})
 
         elif path == '/api/sync':
-            if is_syncing:
+            if state.is_syncing:
                 self.send_json(400, {"success": False, "message": "Sync is already running"})
                 return
 
-            # Clear logs buffer
-            with LOGS_LOCK:
-                LOGS_BUFFER.clear()
-                LOGS_BUFFER.append("Initializing sync request...")
+            with state.LOGS_LOCK:
+                state.LOGS_BUFFER.clear()
+                state.LOGS_BUFFER.append("Initializing sync request...")
 
-            is_syncing = True
-            sync_thread = threading.Thread(target=run_sync_task, daemon=True)
-            sync_thread.start()
+            state.is_syncing = True
+            state.sync_thread = threading.Thread(target=run_sync_task, daemon=True)
+            state.sync_thread.start()
             self.send_json(200, {"success": True, "message": "Sync started"})
 
         elif path == '/api/reset':
-            if is_syncing:
+            if state.is_syncing:
                 self.send_json(400, {"success": False, "message": "Cannot reset history while sync is running"})
                 return
 
@@ -318,8 +483,8 @@ class APIHandler(BaseHTTPRequestHandler):
 
             try:
                 os.remove(PROCESSED_DB_PATH)
-                with LOGS_LOCK:
-                    LOGS_BUFFER.append(">>> Sync history reset successfully. Next run will process all emails.")
+                with state.LOGS_LOCK:
+                    state.LOGS_BUFFER.append(">>> Sync history reset successfully. Next run will process all emails.")
                 self.send_json(200, {"success": True, "message": "Sync history cleared"})
             except Exception as e:
                 self.send_json(500, {"success": False, "message": f"Failed to reset: {e}"})
