@@ -98,45 +98,19 @@ def parse_mailbox_name(mailbox_bytes):
 def process_mailbox(mail, mailbox_name, processed_db):
     """Select mailbox, find attachments in new emails, and download them."""
     # Split mailbox path by '/'
-    parts = [p.strip() for p in mailbox_name.split('/')]
-    if len(parts) != 3:
-        # We only process 3-level hierarchies like CORTEVA/SURYAPET/SURYAPET 2026-2027
+    parts = [p.strip() for p in mailbox_name.split('/') if p.strip()]
+    if not parts:
         return
 
-    root_label, area, leaf_label = parts
-    
-    # Check if root is target
+    root_label = parts[0]
     if root_label.upper() not in TARGET_ROOT_LABELS:
         return
 
-    # Extract year (e.g. 2026-2027) from the leaf label
-    year_match = re.search(r'(\d{4}-\d{4})', leaf_label)
-    if not year_match:
-        print(f"Skipping folder '{mailbox_name}': No year range (e.g. 2026-2027) found in '{leaf_label}'")
-        return
-    year_range = year_match.group(1)
+    # Check if this mailbox contains TBM bills or POs
+    is_tbm_bills = any('tbm' in p.lower() for p in parts)
 
-    # Standardize names to Title Case for folder names
-    company_title = root_label.title()  # E.g. "Corteva" or "New Gen"
-    
-    # Clean up area if it has "-FMC" suffix (e.g. NELLORE-FMC -> NELLORE)
-    clean_area = re.sub(r'-FMC$', '', area, flags=re.IGNORECASE).strip()
-    area_title = clean_area.title()          # E.g. "Suryapet" or "Nellore"
-
-    # Construct the organized directories:
-    # 1. D:\SRI BALAJI TRADERS\<Company> POs
-    # 2. D:\SRI BALAJI TRADERS\<Company> POs\<Company> <Year>
-    # 3. D:\SRI BALAJI TRADERS\<Company> POs\<Company> <Year>\<Area> <Year>
-    # 4. D:\SRI BALAJI TRADERS\<Company> POs\<Company> <Year>\<Area> <Year>\<Area> POs PDF
-    company_folder = WORKSPACE_DIR / f"{company_title} POs"
-    year_folder = company_folder / f"{company_title} {year_range}"
-    area_folder = year_folder / f"{area_title} {year_range}"
-    if company_title.upper() == "FMC":
-        target_folder = area_folder / f"{area_title} FMC POs PDF"
-    else:
-        target_folder = area_folder / f"{area_title} POs PDF"
-
-    # Ensure target directory exists
+    # Directly mirror the Gmail label structure into local workspace directory
+    target_folder = WORKSPACE_DIR.joinpath(*parts)
     target_folder.mkdir(parents=True, exist_ok=True)
 
     print(f"\nProcessing Gmail label: {mailbox_name}")
@@ -208,37 +182,21 @@ def process_mailbox(mail, mailbox_name, processed_db):
             from_name, from_email = parseaddr(from_header)
             from_email = from_email.strip().lower()
 
-            # Check if sender is correct based on company
-            company = root_label.upper()
-            if company == "FMC":
-                target_sender = "newgen.fmc@gmail.com"
-            else:
-                target_sender = "ordersender-prod@ansmtp.ariba.com"
-                
-            if from_email != target_sender:
-                # Skip and mark as processed so we don't query it again
-                processed_db[mailbox_name].append(uid)
-                save_processed_db(processed_db)
-                continue
+            # Check if sender is correct based on company (Bypassed for TBM bills)
+            if not is_tbm_bills:
+                company = root_label.upper()
+                if company == "FMC":
+                    target_sender = "newgen.fmc@gmail.com"
+                else:
+                    target_sender = "ordersender-prod@ansmtp.ariba.com"
+                    
+                if from_email != target_sender:
+                    # Skip and mark as processed so we don't query it again
+                    processed_db[mailbox_name].append(uid)
+                    save_processed_db(processed_db)
+                    continue
 
-            # Check if this is a reply/thread/follow-up email
-            subject_lower = subject.lower().strip()
-            is_reply = (
-                subject_lower.startswith('re:') or 
-                subject_lower.startswith('re-') or 
-                subject_lower.startswith('fw:') or 
-                subject_lower.startswith('fwd:') or 
-                subject_lower.startswith('aw:')
-            )
-
-            if is_reply:
-                print(f"    Skipping follow-up/reply email UID {uid}: {subject}")
-                # Skip and mark as processed so we don't query it again
-                processed_db[mailbox_name].append(uid)
-                save_processed_db(processed_db)
-                continue
-
-            # If sender matches and it is NOT a reply, fetch the full email to download attachments
+            # Fetch the full email to download attachments
             print(f"    Processing email UID: {uid} | Subject: {subject}")
             status, msg_data = mail.uid('fetch', uid, '(RFC822)')
             if status != 'OK' or not msg_data:
@@ -262,8 +220,6 @@ def process_mailbox(mail, mailbox_name, processed_db):
             for part in msg.walk():
                 if part.get_content_maintype() == 'multipart':
                     continue
-                if part.get('Content-Disposition') is None:
-                    continue
 
                 raw_filename = part.get_filename()
                 if not raw_filename:
@@ -277,7 +233,7 @@ def process_mailbox(mail, mailbox_name, processed_db):
                 if payload:
                     filepath = target_folder / filename
                     
-                    # Resolve naming conflicts if file exists but UID is new
+                    # Resolve naming conflicts if a file with the same name already exists
                     counter = 1
                     base_path = filepath
                     while filepath.exists():
@@ -354,8 +310,8 @@ def main():
     for m in mailboxes_list:
         mailbox_name = parse_mailbox_name(m)
         if mailbox_name:
-            parts = [p.strip() for p in mailbox_name.split('/')]
-            if len(parts) == 3:
+            parts = [p.strip() for p in mailbox_name.split('/') if p.strip()]
+            if parts:
                 root_label = parts[0]
                 if root_label.upper() in TARGET_ROOT_LABELS:
                     matching_mailboxes.append(mailbox_name)

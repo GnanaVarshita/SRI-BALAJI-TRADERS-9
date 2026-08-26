@@ -135,7 +135,7 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def scan_downloads(self):
         files = []
-        target_dirs = ["Corteva POs", "New Gen POs", "FMC POs"]
+        target_dirs = ["Corteva POs", "New Gen POs", "FMC POs", "CORTEVA", "FMC", "NEW GEN"]
         for t_dir in target_dirs:
             root_dir = WORKSPACE_DIR / t_dir
             if not root_dir.exists():

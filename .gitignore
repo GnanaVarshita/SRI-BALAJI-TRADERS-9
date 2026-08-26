@@ -16,6 +16,7 @@ processed_emails.json
 .idea/
 .DS_Store
 Thumbs.db
-Corteva POs/
+Corteva/
+FMC/
 FMC POs/
 scratch/
