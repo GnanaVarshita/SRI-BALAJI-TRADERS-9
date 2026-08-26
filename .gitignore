@@ -1,0 +1,20 @@
+# Credentials (DO NOT PUSH TO GITHUB)
+.env
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Production builds
+frontend/dist/
+
+# Local databases
+processed_emails.json
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Corteva POs/
+New Gen POs/

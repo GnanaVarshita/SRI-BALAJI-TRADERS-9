@@ -1,0 +1,17 @@
+{
+  "name": "sri-balaji-traders-automation",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm install --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "start:backend": "python backend/server.py",
+    "start": "npm run build:frontend && npm run start:backend",
+    "dev:backend": "python backend/server.py",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
