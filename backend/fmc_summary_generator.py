@@ -3,6 +3,7 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import PyPDF2
 import re
+import datetime
 from pathlib import Path
 
 ACTIVITY_MAPPING = {
@@ -33,13 +34,28 @@ def extract_pdf_data(path):
                 text += page.extract_text() + '\n'
         
         text = text.replace('\xa0', ' ').replace('\xad', '-')
-        text = text.split('Grand Total')[0]
+        text_before_grand_total = text.split('Grand Total')[0]
         
-        po_no_match = re.search(r'PO No\s*(500BB[\d]+)', text)
+        po_no_match = re.search(r'PO No\s*(500BB[\d]+)', text_before_grand_total)
         po_no = po_no_match.group(1) if po_no_match else ''
         
+        # Extract PO Date
+        date_match = re.search(r'PO\s*Date\s*([\d]{1,2}/[A-Za-z]{3}/[\d]{4}|\d{2}/\d{2}/\d{4}|\d{2}-\d{2}-\d{4}|\d{1,2}/[A-Za-z]+/\d{4})', text, re.IGNORECASE)
+        po_date = ''
+        if date_match:
+            raw_date = date_match.group(1).strip()
+            try:
+                dt_obj = datetime.datetime.strptime(raw_date, '%d/%b/%Y')
+                po_date = dt_obj.strftime('%d-%m-%Y')
+            except Exception:
+                po_date = raw_date
+        else:
+            m2 = re.search(r'Date\s*([\d]{1,2}[/-][A-Za-z0-9]{2,3}[/-][\d]{4})', text, re.IGNORECASE)
+            if m2:
+                po_date = m2.group(1).strip()
+
         activities_list = []
-        blocks = text.split('Activity Type')[1:]
+        blocks = text_before_grand_total.split('Activity Type')[1:]
         for block in blocks:
             m = re.search(r'^\s*(.*?)Crop\n(.*?)Product\n(.*?)State\n', block, re.S)
             val_match = re.search(r'Approx value \(Rs\.\)/Amount\s+([\d.]+)', block)
@@ -55,10 +71,10 @@ def extract_pdf_data(path):
                     'Product': prod_val,
                     'Budget': budget_val
                 })
-        return po_no, activities_list
+        return po_no, po_date, activities_list
     except Exception as e:
         print(f"Error extracting {path}: {e}")
-        return "", []
+        return "", "", []
 
 def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_name):
     input_folder = Path(input_folder_path)
@@ -70,16 +86,19 @@ def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_nam
     # 1. Extract data from all PDFs in input folder
     pdf_po_map = {}
     for pdf_file in input_folder.rglob('*.pdf'):
-        po_no, activities = extract_pdf_data(pdf_file)
+        po_no, po_date, activities = extract_pdf_data(pdf_file)
         if po_no and activities:
             if po_no not in pdf_po_map:
-                pdf_po_map[po_no] = []
-            pdf_po_map[po_no].extend(activities)
+                pdf_po_map[po_no] = {'date': po_date, 'activities': []}
+            pdf_po_map[po_no]['activities'].extend(activities)
 
     # 2. Check if Excel file already exists
     if output_path.exists():
         wb = openpyxl.load_workbook(output_path)
-        ws = wb.active
+        if 'Sheet1' in wb.sheetnames:
+            ws = wb['Sheet1']
+        else:
+            ws = wb.active
     else:
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -102,25 +121,46 @@ def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_nam
     # Ensure Header Rows (Rows 1 to 3) are set up
     if ws.max_row < 3 or ws.cell(3, 1).value != 'S.No':
         # Row 1: Title
-        ws.merge_cells('D1:F1')
-        ws['D1'] = f"FMC {territory} Budget"
-        ws['D1'].font = title_font
-        ws['D1'].alignment = _center()
+        ws.merge_cells('E1:G1')
+        ws['E1'] = f"FMC {territory} Budget"
+        ws['E1'].font = title_font
+        ws['E1'].alignment = _center()
 
         # Row 2: AM Name
-        ws.merge_cells('D2:F2')
-        ws['D2'] = f"AM : {am_name}"
-        ws['D2'].font = title_font
-        ws['D2'].alignment = _center()
+        ws.merge_cells('E2:G2')
+        ws['E2'] = f"AM : {am_name}"
+        ws['E2'].font = title_font
+        ws['E2'].alignment = _center()
 
         # Row 3: Headers
-        headers = ['S.No', 'PO Number', 'Product', 'Crop', 'Activities', 'Budget', 'Spent Budget', 'Balance']
+        headers = ['S.No', 'Date', 'PO Number', 'Product', 'Crop', 'Activities', 'Budget', 'Spent Budget', 'Balance']
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=3, column=col_idx)
             cell.value = header
             cell.font = header_font
             cell.border = border
             cell.alignment = Alignment(horizontal='center', vertical='center')
+    else:
+        # Check if existing sheet is missing Date column at Column 2
+        if ws.cell(3, 2).value != 'Date':
+            ws.insert_cols(2)
+            ws.cell(row=3, column=2, value='Date').font = header_font
+            ws.cell(row=3, column=2).border = border
+            ws.cell(row=3, column=2).alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Fill date for existing rows from pdf_po_map
+            curr_po = ""
+            for r in range(4, ws.max_row + 1):
+                po_val = ws.cell(row=r, column=3).value
+                if po_val and str(po_val).strip() != '':
+                    curr_po = str(po_val).strip()
+                if curr_po and curr_po in pdf_po_map:
+                    ws.cell(row=r, column=2, value=pdf_po_map[curr_po]['date']).alignment = _center()
+                    ws.cell(row=r, column=2).font = regular_font
+                    ws.cell(row=r, column=2).border = border
+
+        # Update AM Name in case user changed selection
+        ws['E2'] = f"AM : {am_name}"
 
     # Read existing PO Numbers and max S.No from sheet
     existing_po_numbers = set()
@@ -129,14 +169,14 @@ def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_nam
     # Check if last row is a Total row and remove it so we can append below data
     last_row = ws.max_row
     if last_row >= 4:
-        val_col5 = ws.cell(row=last_row, column=5).value
-        if val_col5 and str(val_col5).strip().lower() == 'total':
+        val_col6 = ws.cell(row=last_row, column=6).value
+        if val_col6 and str(val_col6).strip().lower() == 'total':
             ws.delete_rows(last_row)
 
     # Read existing data rows (Row 4 to current max_row)
     for r in range(4, ws.max_row + 1):
         sno_val = ws.cell(row=r, column=1).value
-        po_val = ws.cell(row=r, column=2).value
+        po_val = ws.cell(row=r, column=3).value
         
         if sno_val is not None and str(sno_val).strip() != '':
             try:
@@ -160,31 +200,37 @@ def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_nam
     next_sno = current_max_sno + 1
 
     for po_no in new_po_keys:
-        acts = pdf_po_map[po_no]
+        po_entry = pdf_po_map[po_no]
+        po_date = po_entry['date']
+        acts = po_entry['activities']
         for idx, act in enumerate(acts):
             sno = next_sno if idx == 0 else ""
+            po_date_str = po_date if idx == 0 else ""
             po_num_str = po_no if idx == 0 else ""
 
             ws.cell(row=current_row, column=1, value=sno).border = border
             ws.cell(row=current_row, column=1).alignment = _center()
 
-            ws.cell(row=current_row, column=2, value=po_num_str).border = border
-            ws.cell(row=current_row, column=3, value=act['Product']).border = border
-            ws.cell(row=current_row, column=4, value=act['Crop']).border = border
-            ws.cell(row=current_row, column=5, value=act['Activity']).border = border
+            ws.cell(row=current_row, column=2, value=po_date_str).border = border
+            ws.cell(row=current_row, column=2).alignment = _center()
 
-            budget_cell = ws.cell(row=current_row, column=6, value=act['Budget'])
+            ws.cell(row=current_row, column=3, value=po_num_str).border = border
+            ws.cell(row=current_row, column=4, value=act['Product']).border = border
+            ws.cell(row=current_row, column=5, value=act['Crop']).border = border
+            ws.cell(row=current_row, column=6, value=act['Activity']).border = border
+
+            budget_cell = ws.cell(row=current_row, column=7, value=act['Budget'])
             budget_cell.border = border
             budget_cell.number_format = '#,##0'
 
-            ws.cell(row=current_row, column=7, value="").border = border
             ws.cell(row=current_row, column=8, value="").border = border
+            ws.cell(row=current_row, column=9, value="").border = border
 
-            for c in range(1, 9):
+            for c in range(1, 10):
                 ws.cell(row=current_row, column=c).font = regular_font
-                if c >= 2 and c <= 5:
+                if c >= 3 and c <= 6:
                     ws.cell(row=current_row, column=c).alignment = Alignment(vertical='center')
-                elif c >= 6:
+                elif c >= 7:
                     ws.cell(row=current_row, column=c).alignment = Alignment(horizontal='right', vertical='center')
 
             current_row += 1
@@ -192,36 +238,38 @@ def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_nam
         next_sno += 1
 
     # 5. Add / Re-add Total Row at the bottom
-    for c in range(1, 5):
+    for c in range(1, 6):
         ws.cell(row=current_row, column=c).border = border
 
-    ws.cell(row=current_row, column=5, value="Total").font = bold_font
-    ws.cell(row=current_row, column=5).border = border
+    ws.cell(row=current_row, column=6, value="Total").font = bold_font
+    ws.cell(row=current_row, column=6).border = border
 
     if current_row > 4:
-        total_budget_cell = ws.cell(row=current_row, column=6, value=f"=SUM(F4:F{current_row-1})")
+        total_budget_cell = ws.cell(row=current_row, column=7, value=f"=SUM(G4:G{current_row-1})")
     else:
-        total_budget_cell = ws.cell(row=current_row, column=6, value=0)
+        total_budget_cell = ws.cell(row=current_row, column=7, value=0)
 
     total_budget_cell.font = bold_font
     total_budget_cell.border = border
     total_budget_cell.number_format = '#,##0'
 
-    ws.cell(row=current_row, column=7).border = border
     ws.cell(row=current_row, column=8).border = border
+    ws.cell(row=current_row, column=9).border = border
 
     # Adjust column widths
     ws.column_dimensions['A'].width = 6
-    ws.column_dimensions['B'].width = 22
-    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['B'].width = 14
+    ws.column_dimensions['C'].width = 22
     ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 25
-    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 25
     ws.column_dimensions['G'].width = 15
     ws.column_dimensions['H'].width = 15
+    ws.column_dimensions['I'].width = 15
 
     wb.save(output_path)
     wb.close()
 
     return len(new_po_keys)
+
 

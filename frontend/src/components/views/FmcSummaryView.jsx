@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import BrowseField from '../common/BrowseField';
+import SelectField from '../common/SelectField';
 import ResultPanel from '../common/ResultPanel';
 
 function FmcSummaryView() {
@@ -8,6 +9,10 @@ function FmcSummaryView() {
   // Step 1 states
   const [inputFolderPath, setInputFolderPath] = useState('');
   const [saveFolderPath, setSaveFolderPath] = useState('');
+
+  // Shared states
+  const [amName, setAmName] = useState('Madhavareddy');
+  const amOptions = ['Madhavareddy', 'Venkateshwar reddy'];
 
   // Step 2 states
   const [excelPath, setExcelPath] = useState('');
@@ -103,7 +108,7 @@ function FmcSummaryView() {
       const res = await fetch('/api/generate-fmc-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputFolderPath, saveFolderPath }),
+        body: JSON.stringify({ inputFolderPath, saveFolderPath, amName }),
       });
 
       const data = await res.json();
@@ -139,7 +144,7 @@ function FmcSummaryView() {
       const res = await fetch('/api/generate-fmc-step2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ excelPath }),
+        body: JSON.stringify({ excelPath, amName }),
       });
 
       const data = await res.json();
@@ -192,6 +197,13 @@ function FmcSummaryView() {
               </p>
               <form onSubmit={handleStep1Submit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 
+                <SelectField 
+                  label="AM (Area Manager) Name"
+                  value={amName}
+                  onChange={(e) => setAmName(e.target.value)}
+                  options={amOptions}
+                />
+
                 <BrowseField 
                   label="Input FMC POs PDF Folder"
                   value={inputFolderPath}
@@ -223,6 +235,13 @@ function FmcSummaryView() {
               </p>
               <form onSubmit={handleStep2Submit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 
+                <SelectField 
+                  label="AM (Area Manager) Name"
+                  value={amName}
+                  onChange={(e) => setAmName(e.target.value)}
+                  options={amOptions}
+                />
+
                 <BrowseField 
                   label="Target FMC Budget Excel File (Step 1 Output)"
                   value={excelPath}

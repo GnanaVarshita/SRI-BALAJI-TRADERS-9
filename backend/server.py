@@ -438,12 +438,17 @@ class APIHandler(BaseHTTPRequestHandler):
                 return
                 
             if not territory:
-                folder_name = input_folder.name
-                match = re.match(r'([a-zA-Z]+)', folder_name)
-                if match:
-                    territory = match.group(1).title()
-                else:
-                    territory = "Nandyala"
+                for part in input_folder.parts:
+                    clean = part.upper().replace('-FMC', '').replace(' POS', '').replace(' PO', '').strip()
+                    if clean in ['NANDYALA', 'NANDYAL', 'NELLORE', 'SURYAPET', 'KURNOOL']:
+                        territory = clean.title()
+                        break
+                if not territory:
+                    match = re.search(r'(nandyala|nandyal|nellore|suryapet|kurnool)', str(input_folder), re.I)
+                    if match:
+                        territory = match.group(1).title()
+                    else:
+                        territory = "Nandyala"
 
             if not output_name:
                 output_name = f"{territory} FMC Budget.xlsx"
@@ -455,7 +460,11 @@ class APIHandler(BaseHTTPRequestHandler):
             
             new_added = fmc_summary_generator.generate_fmc_summary(input_folder, output_path, territory, am_name)
             
-            msg = f"FMC PO Summary generated successfully as {output_name}! ({new_added} new POs processed)"
+            if new_added > 0:
+                msg = f"FMC Master Budget sheet generated/updated as {output_name}! ({new_added} new PO(s) appended to Sheet1)"
+            else:
+                msg = f"FMC Master Budget sheet ({output_name}) is already up to date! (0 new POs to add)"
+
             self.send_json(200, {
                 "success": True,
                 "message": msg,
@@ -468,7 +477,7 @@ class APIHandler(BaseHTTPRequestHandler):
         try:
             import fmc_step2_generator
             excel_path_str = data.get("excelPath", "").strip()
-            territory = data.get("territory", "").strip() or "Nandyala"
+            territory = data.get("territory", "").strip()
             am_name = data.get("amName", "").strip() or "Madhavareddy"
             
             if not excel_path_str:
@@ -480,9 +489,26 @@ class APIHandler(BaseHTTPRequestHandler):
                 self.send_json(400, {"success": False, "message": f"Excel file does not exist at: {excel_path_str}"})
                 return
 
-            n_pos, n_sheets = fmc_step2_generator.generate_fmc_step2_summaries(excel_path, territory, am_name)
+            if not territory:
+                for part in excel_path.parts:
+                    clean = part.upper().replace('-FMC', '').replace(' POS', '').replace(' PO', '').strip()
+                    if clean in ['NANDYALA', 'NANDYAL', 'NELLORE', 'SURYAPET', 'KURNOOL']:
+                        territory = clean.title()
+                        break
+                if not territory:
+                    match = re.search(r'(nandyala|nandyal|nellore|suryapet|kurnool)', excel_path.name, re.I)
+                    if match:
+                        territory = match.group(1).title()
+                    else:
+                        territory = "Nandyala"
+
+            n_new_cards, n_total_sheets = fmc_step2_generator.generate_fmc_step2_summaries(excel_path, territory, am_name)
             
-            msg = f"Generated {n_sheets} summary card sheet(s) for {n_pos} POs in {excel_path.name}!"
+            if n_new_cards > 0:
+                msg = f"Generated {n_new_cards} new PO summary card(s) across {n_total_sheets} card sheet(s) in {excel_path.name}!"
+            else:
+                msg = f"All PO summary cards in {excel_path.name} are already up to date! (0 new PO cards to generate)"
+
             self.send_json(200, {
                 "success": True,
                 "message": msg,
