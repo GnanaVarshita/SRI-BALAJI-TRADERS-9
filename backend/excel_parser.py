@@ -1,4 +1,85 @@
 import openpyxl
+from pathlib import Path
+
+try:
+    import xlrd
+except ImportError:
+    xlrd = None
+
+try:
+    import pyxlsb
+except ImportError:
+    pyxlsb = None
+
+def load_any_workbook(filepath):
+    """
+    Universal workbook loader accepting .xlsx, .xlsm, .xls, .xlsb, and .csv files.
+    Returns an openpyxl Workbook object.
+    """
+    p = Path(filepath)
+    ext = p.suffix.lower()
+
+    if ext in ['.xlsx', '.xlsm']:
+        return openpyxl.load_workbook(p, data_only=True)
+
+    wb_out = openpyxl.Workbook()
+    if "Sheet" in wb_out.sheetnames:
+        wb_out.remove(wb_out["Sheet"])
+
+    if ext == '.xls' and xlrd is not None:
+        wb_xls = xlrd.open_workbook(p)
+        for sname in wb_xls.sheet_names():
+            sh_xls = wb_xls.sheet_by_name(sname)
+            ws_out = wb_out.create_sheet(title=sname)
+            for r in range(sh_xls.nrows):
+                for c in range(sh_xls.ncols):
+                    val = sh_xls.cell_value(r, c)
+                    if sh_xls.cell_type(r, c) == xlrd.XL_CELL_DATE:
+                        try:
+                            dt = xlrd.xldate_as_datetime(val, wb_xls.datemode)
+                            val = dt.strftime('%d/%m/%Y')
+                        except Exception:
+                            pass
+                    ws_out.cell(row=r+1, column=c+1, value=val)
+        return wb_out
+
+    elif ext == '.csv':
+        import csv
+        with open(p, 'r', encoding='utf-8-sig', errors='replace') as f:
+            reader = list(csv.reader(f))
+            ws_out = wb_out.create_sheet(title="Sheet1")
+            for r_idx, row in enumerate(reader, start=1):
+                for c_idx, val in enumerate(row, start=1):
+                    ws_out.cell(row=r_idx, column=c_idx, value=val)
+        return wb_out
+
+    elif ext == '.xlsb' and pyxlsb is not None:
+        with pyxlsb.open_workbook(p) as wb_xlsb:
+            for sname in wb_xlsb.sheets:
+                ws_out = wb_out.create_sheet(title=sname)
+                with wb_xlsb.get_sheet(sname) as sheet:
+                    for r_idx, row in enumerate(sheet.rows(), start=1):
+                        for c_idx, cell in enumerate(row, start=1):
+                            ws_out.cell(row=r_idx, column=c_idx, value=cell.v)
+        return wb_out
+
+    # Fallback try openpyxl then xlrd
+    try:
+        return openpyxl.load_workbook(p, data_only=True)
+    except Exception:
+        if xlrd is not None:
+            try:
+                wb_xls = xlrd.open_workbook(p)
+                for sname in wb_xls.sheet_names():
+                    sh_xls = wb_xls.sheet_by_name(sname)
+                    ws_out = wb_out.create_sheet(title=sname)
+                    for r in range(sh_xls.nrows):
+                        for c in range(sh_xls.ncols):
+                            ws_out.cell(row=r+1, column=c+1, value=sh_xls.cell_value(r, c))
+                return wb_out
+            except Exception:
+                pass
+        raise ValueError(f"Unsupported or corrupted Excel format for file: {p.name}")
 
 def find_headers(sheet):
     """
@@ -27,7 +108,6 @@ def find_headers(sheet):
             elif "total budget" in val_lower or "allocation" in val_lower:
                 indices["allocation"] = c_idx
         
-        # If we have at least 4 matches, this is our header row
         if len(indices) >= 4:
             default_keys = ["type", "product", "crop", "activity", "event_cost", "qty", "allocation"]
             standard_cols = {
@@ -44,7 +124,6 @@ def find_headers(sheet):
                     indices[k] = standard_cols[k]
             return r, indices
             
-    # Default fallback to row 11
     return 11, {
         "type": 1,
         "product": 2,
@@ -57,12 +136,11 @@ def find_headers(sheet):
 
 def validate_budget_sheet(filepath):
     """
-    Opens the excel sheet, dynamically locates data headers, parses data rows,
-    and returns a success report with rows data and total aggregations.
+    Opens any format Excel sheet (.xlsx, .xls, .xlsm, .xlsb, .csv),
+    dynamically locates data headers, parses data rows, and returns a report.
     """
     try:
-        # Load workbook (data_only=True to read static values of formulas if any)
-        wb = openpyxl.load_workbook(filepath, data_only=True)
+        wb = load_any_workbook(filepath)
         sheet = wb.active
         
         header_row, col_map = find_headers(sheet)
@@ -74,9 +152,8 @@ def validate_budget_sheet(filepath):
         
         row_idx = header_row + 1
         while True:
-            # Stop if the row is completely empty
             row_values = [sheet.cell(row=row_idx, column=col).value for col in range(1, 10)]
-            if all(v is None for v in row_values):
+            if all(v is None or str(v).strip() == "" or str(v).strip().lower() == "none" for v in row_values):
                 break
                 
             row_type = sheet.cell(row=row_idx, column=col_map["type"]).value
@@ -84,11 +161,9 @@ def validate_budget_sheet(filepath):
             crop = sheet.cell(row=row_idx, column=col_map["crop"]).value
             activity = sheet.cell(row=row_idx, column=col_map["activity"]).value
             
-            # If product and type are both None, we probably hit the end
             if product is None and row_type is None:
                 break
                 
-            # Read Event Cost, Qty, and Allocation
             try:
                 event_cost = float(sheet.cell(row=row_idx, column=col_map["event_cost"]).value or 0.0)
                 qty = float(sheet.cell(row=row_idx, column=col_map["qty"]).value or 0.0)

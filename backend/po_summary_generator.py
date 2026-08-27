@@ -4,12 +4,14 @@ import datetime
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+from excel_parser import load_any_workbook
+
 def generate_po_summary(input_path, output_path, po_number, date_str, contact, territory):
     """
     Parses product worksheets from the input Quotation workbook
     and generates a brand-new PO Summary workbook with tracking sheets.
     """
-    wb_input = openpyxl.load_workbook(input_path, data_only=True)
+    wb_input = load_any_workbook(input_path)
 
     wb_output = openpyxl.Workbook()
     default_sheet = wb_output.active

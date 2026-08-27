@@ -76,6 +76,8 @@ def extract_pdf_data(path):
         print(f"Error extracting {path}: {e}")
         return "", "", []
 
+from excel_parser import load_any_workbook
+
 def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_name):
     input_folder = Path(input_folder_path)
     if not input_folder.is_dir():
@@ -94,7 +96,7 @@ def generate_fmc_summary(input_folder_path, output_excel_path, territory, am_nam
 
     # 2. Check if Excel file already exists
     if output_path.exists():
-        wb = openpyxl.load_workbook(output_path)
+        wb = load_any_workbook(output_path)
         if 'Sheet1' in wb.sheetnames:
             ws = wb['Sheet1']
         else:

@@ -298,12 +298,14 @@ def get_existing_card_pos(wb):
                     card_pos.add(str(po_val).strip())
     return card_pos
 
+from excel_parser import load_any_workbook
+
 def generate_fmc_step2_summaries(excel_file_path, territory='Nandyal', am_name='Madhavareddy'):
     excel_path = Path(excel_file_path)
     if not excel_path.exists():
         raise FileNotFoundError(f"Excel file not found at: {excel_file_path}")
 
-    wb = openpyxl.load_workbook(excel_path)
+    wb = load_any_workbook(excel_path)
     
     if 'Sheet1' not in wb.sheetnames:
         raise ValueError("Sheet1 not found in the uploaded Excel file. Please run Step 1 first.")

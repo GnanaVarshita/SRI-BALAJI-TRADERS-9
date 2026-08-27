@@ -42,6 +42,12 @@ function Sidebar() {
           <span className="nav-icon">📊</span> FMC PO Summary
         </NavLink>
         <NavLink 
+          to="/tbm-summary" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">📁</span> TBM Master Summary
+        </NavLink>
+        <NavLink 
           to="/settings" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >

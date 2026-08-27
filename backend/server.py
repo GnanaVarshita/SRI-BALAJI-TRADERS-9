@@ -266,7 +266,7 @@ class APIHandler(BaseHTTPRequestHandler):
                     path = filedialog.askopenfilename(
                         initialdir="D:/SRI BALAJI TRADERS",
                         title="Select Budget Excel File",
-                        filetypes=[("Excel files", "*.xlsx")]
+                        filetypes=[("Excel files", "*.xlsx;*.xls;*.xlsm;*.xlsb;*.csv"), ("All files", "*.*")]
                     )
                     root.destroy()
                     q.put(path)
@@ -326,8 +326,8 @@ class APIHandler(BaseHTTPRequestHandler):
                 self.send_json(400, {"success": False, "message": f"File does not exist at: {file_path_str}"})
                 return
 
-            if not file_path_str.endswith('.xlsx'):
-                self.send_json(400, {"success": False, "message": "Please select a valid .xlsx Excel file"})
+            if not any(file_path_str.lower().endswith(ext) for ext in ['.xlsx', '.xls', '.xlsm', '.xlsb', '.csv']):
+                self.send_json(400, {"success": False, "message": "Please select a valid Excel file (.xlsx, .xls, .xlsm, .xlsb, .csv)"})
                 return
 
             company = data.get('company', 'Corteva Agriscience').strip()
@@ -517,6 +517,35 @@ class APIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json(500, {"success": False, "message": f"FMC Step 2 Summary generation failed: {e}"})
 
+    def handle_generate_tbm_summary_local(self, data):
+        try:
+            import tbm_summary_generator
+            input_folder_str = data.get("tbmFolderPath", "").strip()
+            output_path_str = data.get("outputPath", "").strip()
+            priority_po_list = data.get("priorityPoList", None)
+
+            if not input_folder_str:
+                self.send_json(400, {"success": False, "message": "TBM Summary Folder path is required"})
+                return
+
+            input_folder = Path(input_folder_str)
+            if not input_folder.exists() or not input_folder.is_dir():
+                self.send_json(400, {"success": False, "message": f"TBM Summary folder does not exist at: {input_folder_str}"})
+                return
+
+            res = tbm_summary_generator.generate_tbm_summary(
+                tbm_folder_path=input_folder,
+                output_path=output_path_str if output_path_str else None,
+                priority_po_list=priority_po_list
+            )
+
+            if res.get("success"):
+                self.send_json(200, res)
+            else:
+                self.send_json(400, res)
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"TBM Summary generation failed: {e}"})
+
     def handle_api_post(self, path, body_bytes, content_type):
         global is_syncing, sync_thread
         
@@ -551,6 +580,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/generate-fmc-step2':
             self.handle_generate_fmc_step2_local(data)
+            return
+
+        if path == '/api/generate-tbm-summary':
+            self.handle_generate_tbm_summary_local(data)
             return
 
         if path == '/api/config':

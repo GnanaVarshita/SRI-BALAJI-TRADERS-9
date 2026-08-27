@@ -1,7 +1,7 @@
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from excel_parser import validate_budget_sheet
+from excel_parser import validate_budget_sheet, load_any_workbook
 
 def generate_quotations(filepath, company, contact, designation, territory, date_str):
     """
@@ -18,7 +18,7 @@ def generate_quotations(filepath, company, contact, designation, territory, date
     products = sorted(list(set(r["product"] for r in rows if r["product"])))
     
     # Load original workbook for modification
-    wb = openpyxl.load_workbook(filepath)
+    wb = load_any_workbook(filepath)
     
     # Styles definition
     gold_header_fill = PatternFill(start_color="F5E6CC", end_color="F5E6CC", fill_type="solid") # Soft Gold
