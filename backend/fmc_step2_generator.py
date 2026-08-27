@@ -24,11 +24,16 @@ def parse_pos_from_step1_sheet(ws):
             current_po = {
                 'po_number': str(po_num).strip(),
                 'po_date': str(date_val).strip() if date_val else '',
-                'product': str(prod).strip() if prod else '',
-                'crop': str(crop).strip() if crop else '',
+                'products': [str(prod).strip()] if prod and str(prod).strip() else [],
+                'crops': [str(crop).strip()] if crop and str(crop).strip() else [],
                 'activities': []
             }
             pos.append(current_po)
+        elif current_po:
+            if prod and str(prod).strip() and str(prod).strip() not in current_po['products']:
+                current_po['products'].append(str(prod).strip())
+            if crop and str(crop).strip() and str(crop).strip() not in current_po['crops']:
+                current_po['crops'].append(str(crop).strip())
             
         if current_po and act:
             current_po['activities'].append({
@@ -36,6 +41,10 @@ def parse_pos_from_step1_sheet(ws):
                 'budget': budget or 0
             })
             
+    for p in pos:
+        p['product'] = ' / '.join(p['products']) if p.get('products') else ''
+        p['crop'] = ' / '.join(p['crops']) if p.get('crops') else ''
+        
     return pos
 
 def write_po_summary_block(ws, start_r, po_data, territory='Nandyal', am_name='Madhavareddy', date_str='01-08-2026'):
@@ -57,7 +66,7 @@ def write_po_summary_block(ws, start_r, po_data, territory='Nandyal', am_name='M
     po_no = po_data['po_number']
     prefix = po_no[3:5] if len(po_no) >= 5 else 'BB'
     product = po_data['product']
-    crop = po_data['crop']
+    crops = po_data.get('crops', [po_data.get('crop', '')])
     activities = po_data['activities']
     total_budget = sum(a['budget'] for a in activities)
 
@@ -69,9 +78,10 @@ def write_po_summary_block(ws, start_r, po_data, territory='Nandyal', am_name='M
     ws.cell(start_r, 4, "PRODUCT").font = red_bold
     ws.cell(start_r, 7, product).font = green_bold
 
-    # H: CROP, I: Crop Value
+    # H: CROP, I: Crop 1 Value
     ws.cell(start_r, 8, "CROP").font = red_bold
-    ws.cell(start_r, 9, crop).font = green_bold
+    if len(crops) > 0 and crops[0]:
+        ws.cell(start_r, 9, crops[0]).font = green_bold
 
     # J: DATE, L: Date Value
     ws.cell(start_r, 10, "DATE").font = red_bold
@@ -88,6 +98,11 @@ def write_po_summary_block(ws, start_r, po_data, territory='Nandyal', am_name='M
     # --- ROW 2 of Block (start_r + 1) ---
     # D: MA or BB
     ws.cell(start_r + 1, 4, prefix).font = green_bold
+
+    # I: Crop 2 Value (if present)
+    if len(crops) > 1 and crops[1]:
+        crop2_str = ' / '.join(crops[1:])
+        ws.cell(start_r + 1, 9, crop2_str).font = green_bold
 
     # --- ROW 3 of Block (start_r + 2) ---
     # G: Territory Name (e.g. Nandyal / Nellore)
@@ -261,7 +276,7 @@ def count_cards_on_sheet(ws):
         r = 1 + b_idx * 19
         if r <= ws.max_row:
             val = ws.cell(r, 1).value
-            if val and str(val).strip().startswith('500BB'):
+            if val and str(val).strip().startswith('500'):
                 count += 1
             else:
                 break
@@ -279,7 +294,7 @@ def get_existing_card_pos(wb):
             r = 1 + b_idx * 19
             if r <= ws.max_row:
                 po_val = ws.cell(r, 1).value
-                if po_val and str(po_val).strip().startswith('500BB'):
+                if po_val and str(po_val).strip().startswith('500'):
                     card_pos.add(str(po_val).strip())
     return card_pos
 
