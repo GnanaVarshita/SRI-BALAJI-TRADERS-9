@@ -55,11 +55,15 @@ def decode_mime_words(s):
 
 def sanitize_filename(filename):
     """Sanitize filename to be safe for Windows file systems."""
+    if not filename:
+        return ""
     filename = os.path.basename(filename)
+    filename = re.sub(r'[\r\n\t\x00-\x1f]', ' ', filename)
     invalid_chars = '<>:"/\\|?*'
     for c in invalid_chars:
         filename = filename.replace(c, '_')
-    return filename.strip()
+    filename = re.sub(r'\s+', ' ', filename).strip()
+    return filename
 
 def load_processed_db():
     """Load the processed emails database."""
@@ -221,7 +225,7 @@ def process_mailbox(mail, mailbox_name, processed_db):
                 if part.get_content_maintype() == 'multipart':
                     continue
 
-                raw_filename = part.get_filename()
+                raw_filename = part.get_filename() or part.get_param('name', header='content-type') or part.get_param('filename', header='content-disposition')
                 if not raw_filename:
                     continue
 
