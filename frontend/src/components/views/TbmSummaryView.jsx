@@ -108,13 +108,24 @@ function TbmSummaryView() {
               <label className="form-label">
                 Target Output Master Excel File Path
               </label>
-              <input
-                type="text"
-                className="input-text"
+              <textarea
+                rows={1}
+                className="path-input-textarea"
                 value={outputPath}
                 onChange={(e) => setOutputPath(e.target.value)}
                 placeholder="Defaults to [Territory]-All-TBMs-Summary.xlsx inside TBM Summary Folder"
                 disabled={loading}
+                style={{
+                  minHeight: '42px',
+                  resize: 'vertical',
+                  wordBreak: 'break-all',
+                  overflowWrap: 'anywhere',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'Consolas, "Courier New", monospace, sans-serif',
+                  fontSize: '0.88rem',
+                  lineHeight: '1.4',
+                  padding: '0.65rem 0.75rem'
+                }}
               />
               <span className="form-help">
                 If the Excel file exists, new activities will be appended automatically.

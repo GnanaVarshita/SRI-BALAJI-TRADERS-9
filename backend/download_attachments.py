@@ -8,7 +8,7 @@ from email.utils import parseaddr
 from pathlib import Path
 
 # Configuration
-WORKSPACE_DIR = Path("D:/SRI BALAJI TRADERS")
+WORKSPACE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = WORKSPACE_DIR / ".env"
 PROCESSED_DB_PATH = WORKSPACE_DIR / "processed_emails.json"
 IMAP_SERVER = "imap.gmail.com"
@@ -110,8 +110,11 @@ def process_mailbox(mail, mailbox_name, processed_db):
     if root_label.upper() not in TARGET_ROOT_LABELS:
         return
 
-    # Check if this mailbox contains TBM bills or POs
-    is_tbm_bills = any('tbm' in p.lower() for p in parts)
+    # Check if this mailbox contains TBM bills or Quotations (bypasses official PO sender restriction)
+    is_tbm_or_quotations = any(
+        'tbm' in p.lower() or 'quotation' in p.lower() or 'quote' in p.lower()
+        for p in parts
+    )
 
     # Directly mirror the Gmail label structure into local workspace directory
     target_folder = WORKSPACE_DIR.joinpath(*parts)
@@ -186,8 +189,8 @@ def process_mailbox(mail, mailbox_name, processed_db):
             from_name, from_email = parseaddr(from_header)
             from_email = from_email.strip().lower()
 
-            # Check if sender is correct based on company (Bypassed for TBM bills)
-            if not is_tbm_bills:
+            # Check if sender is correct based on company (Bypassed for TBM bills and Quotations)
+            if not is_tbm_or_quotations:
                 company = root_label.upper()
                 if company == "FMC":
                     target_sender = "newgen.fmc@gmail.com"

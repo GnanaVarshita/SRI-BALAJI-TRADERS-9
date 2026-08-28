@@ -2,7 +2,10 @@
 # Helper script to run the Gmail Attachment Downloader with the correct Python interpreter.
 
 $ScriptDir = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
-$PythonScript = Join-Path $ScriptDir "download_attachments.py"
+$PythonScript = Join-Path $ScriptDir "backend\download_attachments.py"
+if (-not (Test-Path $PythonScript)) {
+    $PythonScript = Join-Path $ScriptDir "download_attachments.py"
+}
 $EnvFile = Join-Path $ScriptDir ".env"
 
 if (-not (Test-Path $EnvFile)) {
