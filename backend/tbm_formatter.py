@@ -93,9 +93,9 @@ def parse_date_intelligent(val):
 FIELD_KEYWORDS = {
     'sl_no': ['sl no', 'sl.no', 's no', 's.no', 'sno', 'si no', 'si.no', 's. no', 'sl. no', 'slno'],
     'date': ['date'],
-    'zdgm': ['zdgm', 'zdgl', 'area manager', 'adgl', 'adg', 'dm', 'zdsm', 'manager'],
-    'tbm': ['tbm name', 'tbm', 'name of the tbm', 'tbm/sc/so', 'sc/so', 'tbm / sc / so'],
-    'mdo': ['mdo name', 'mdo'],
+    'zdgm': ['zdgm', 'zdgl', 'area manager', 'adgl', 'adg', 'dm', 'zdsm', 'manager', 'rbm', 'am', 'area manager/am', 'area manager / am'],
+    'tbm': ['tbm name', 'tbm', 'name of the tbm', 'tbm/sc/so', 'sc/so', 'tbm / sc / so', 'mie', 'mie name'],
+    'mdo': ['mdo name', 'mdo', 'mdo/fa', 'fa'],
     'territory': ['territory', 'tbm territory', 'area', 'place', 'location'],
     'product': ['product', 'item', 'brand', 'product name'],
     'crop': ['crop', 'crops'],

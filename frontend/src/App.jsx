@@ -10,6 +10,7 @@ import QuotationView from './components/views/QuotationView';
 import SummaryView from './components/views/SummaryView';
 import FmcSummaryView from './components/views/FmcSummaryView';
 import TbmSummaryView from './components/views/TbmSummaryView';
+import SyncBalancesView from './components/views/SyncBalancesView';
 import SettingsView from './components/views/SettingsView';
 
 function App() {
@@ -187,6 +188,10 @@ function App() {
             <Route 
               path="/tbm-summary" 
               element={<TbmSummaryView />} 
+            />
+            <Route 
+              path="/sync-balances" 
+              element={<SyncBalancesView />} 
             />
             <Route 
               path="/settings" 

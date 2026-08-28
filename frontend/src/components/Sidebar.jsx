@@ -48,6 +48,12 @@ function Sidebar() {
           <span className="nav-icon">📁</span> TBM Master Summary
         </NavLink>
         <NavLink 
+          to="/sync-balances" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">⚖️</span> Sync Spent &amp; Balances
+        </NavLink>
+        <NavLink 
           to="/settings" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >

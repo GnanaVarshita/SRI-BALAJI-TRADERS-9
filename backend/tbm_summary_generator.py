@@ -58,11 +58,11 @@ def parse_num(val):
         return 0.0
 
 FIELD_KEYWORDS = {
-    'sl_no': ['sl no', 'sl.no', 's no', 's.no', 'sno', 'si no'],
+    'sl_no': ['sl no', 'sl.no', 's no', 's.no', 'sno', 'si no', 'si.no', 's no.', 'si no.'],
     'date': ['date'],
-    'zdgm': ['zdgm', 'zdgl', 'area manager', 'adgl', 'adg'],
-    'tbm': ['tbm name', 'tbm', 'name of the tbm'],
-    'mdo': ['mdo'],
+    'zdgm': ['zdgm', 'zdgl', 'area manager', 'adgl', 'adg', 'dm', 'zdsm', 'manager', 'rbm', 'am', 'area manager/am', 'area manager / am'],
+    'tbm': ['tbm name', 'tbm', 'name of the tbm', 'tbm/sc/so', 'sc/so', 'tbm / sc / so', 'mie', 'mie name'],
+    'mdo': ['mdo', 'mdo name', 'mdo/fa', 'fa'],
     'territory': ['territory', 'tbm territory', 'area', 'place'],
     'product': ['product', 'item'],
     'crop': ['crop'],

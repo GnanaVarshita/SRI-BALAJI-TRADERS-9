@@ -160,7 +160,7 @@ function TbmSummaryView() {
                 </span>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-                Reads raw summaries from Sheet 1, groups by (PO, Product, Activity), formats dates into <code>DD-MM-YYYY</code>, adds Excel formulas, and writes styled tables to <strong>Sheet 2</strong> without touching Sheet 1.
+                Reads raw summaries from Sheet 1, groups by (PO, Product, Activity), formats dates into <code>DD-MM-YYYY</code>, adds Excel formulas, each PO total, and writes styled tables to <strong>Sheet 2</strong> without touching Sheet 1.
               </p>
               <button
                 type="button"
@@ -268,7 +268,7 @@ function TbmSummaryView() {
               <div className="spinner" style={{ fontSize: '3rem', display: 'inline-block', marginBottom: '1rem' }}>⏳</div>
               <h3>Formatting TBM Excel Sheets (Step 1)...</h3>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                Extracting raw tables, normalizing dates to DD-MM-YYYY, grouping by (PO, Product, Activity), and writing green styled tables to Sheet 2.
+                Extracting raw tables, normalizing dates to DD-MM-YYYY, grouping by (PO, Product, Activity), and writing green styled tables with PO totals to Sheet 2.
               </p>
             </div>
           )}

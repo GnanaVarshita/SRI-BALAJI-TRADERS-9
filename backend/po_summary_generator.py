@@ -3,8 +3,13 @@ import re
 import datetime
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-
-from excel_parser import load_any_workbook
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).resolve().parent))
+try:
+    from excel_parser import load_any_workbook
+except ImportError:
+    from .excel_parser import load_any_workbook
 
 def generate_po_summary(input_path, output_path, po_number, date_str, contact, territory):
     """
@@ -204,8 +209,8 @@ def generate_po_summary(input_path, output_path, po_number, date_str, contact, t
 
         # 7. Table header rows 10 & 11 (merged per column)
         FIXED_HEADERS = [
-            'I.V NO','DATE','AREA','PO NUMBER','BUDGET',
-            'PRODUCT','Crop','ACTIVITY','TDGM','MIE','NO.OF.Activities'
+            'I.V NO', 'DATE', 'AREA', 'PO NUMBER', 'BUDGET TYPE',
+            'PRODUCT', 'CROP', 'ACTIVITY', 'ZDGM', 'TBM', 'NO.OF.Activities'
         ]
 
         def write_header(col, label):

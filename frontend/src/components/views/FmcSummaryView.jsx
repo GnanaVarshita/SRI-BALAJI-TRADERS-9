@@ -115,7 +115,7 @@ function FmcSummaryView() {
       if (res.ok && data.success) {
         setResult(data);
         if (data.outputPath) {
-          setExcelPath(data.outputPath); // Auto pre-fill Step 2!
+          setExcelPath(data.outputPath);
         }
       } else {
         setErrorMsg(data.message || 'Failed to generate FMC Master Budget sheet.');
@@ -175,7 +175,7 @@ function FmcSummaryView() {
           onClick={() => setActiveStep('step1')}
           style={{ padding: '0.75rem 1.5rem', fontWeight: 'bold' }}
         >
-           Step 1: Master Budget Table (From PDFs)
+          Step 1: Master Budget Table (From PDFs)
         </button>
         <button 
           className={activeStep === 'step2' ? 'primary' : 'secondary'}
@@ -191,7 +191,7 @@ function FmcSummaryView() {
         <div className="card">
           {activeStep === 'step1' ? (
             <>
-              <h2>Step 1: Extract PDFs & Build Budget Sheet</h2>
+              <h2>Step 1: Extract PDFs &amp; Build Budget Sheet</h2>
               <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
                 Inspects all PO PDFs in your selected folder, extracts PO numbers, products, crops, activities, and budget figures without duplicates.
               </p>
@@ -223,7 +223,7 @@ function FmcSummaryView() {
                 />
 
                 <button type="submit" className="primary" disabled={loading || !inputFolderPath || !saveFolderPath} style={{ marginTop: '0.5rem' }}>
-                  {loading ? 'Processing FMC PDFs...' : ' Step 1: Build / Append Master Budget Sheet'}
+                  {loading ? 'Processing FMC PDFs...' : '📄 Step 1: Build / Append Master Budget Sheet'}
                 </button>
               </form>
             </>
@@ -252,50 +252,41 @@ function FmcSummaryView() {
                 />
 
                 <button type="submit" className="primary" disabled={loading || !excelPath} style={{ marginTop: '0.5rem' }}>
-                  {loading ? 'Generating Summary Cards...' : ' Step 2: Generate 11 PO Cards Per Sheet'}
+                  {loading ? 'Generating Cards...' : '🗂️ Step 2: Generate / Append Summary Cards'}
                 </button>
               </form>
             </>
           )}
         </div>
 
-        {/* Results Panel Card */}
+        {/* Execution Output Card */}
         <div className="card">
-          <h2>Summary File Details</h2>
+          <h2>Execution Status</h2>
           
           {errorMsg && (
             <div className="toast error" style={{ width: '100%', marginBottom: '1.5rem' }}>
-              ? {errorMsg}
+              ⚠️ {errorMsg}
             </div>
           )}
 
-          {!loading && !result && !errorMsg && (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '5rem 1rem' }}>
-              <h3>Awaiting Action</h3>
-              <p style={{ marginTop: '0.5rem' }}>
-                {activeStep === 'step1' 
-                  ? 'Select the FMC PDF folder and click process to generate or append the master budget table.'
-                  : 'Select your Step 1 Excel workbook and click process to generate formatted PO summary card sheets.'
-                }
-              </p>
-            </div>
-          )}
-
-          {loading && (
-            <div style={{ textAlign: 'center', color: 'var(--primary-color)', padding: '5rem 1rem' }}>
-              <div className="spinner" style={{ fontSize: '3rem', display: 'inline-block', marginBottom: '1rem' }}>??</div>
-              <h3>{activeStep === 'step1' ? 'Processing PO PDFs...' : 'Building Summary Card Sheets...'}</h3>
+          {loading ? (
+            <div style={{ textAlign: 'center', color: 'var(--primary-color)', padding: '3rem 1rem' }}>
+              <div className="spinner" style={{ fontSize: '2.5rem', display: 'inline-block', marginBottom: '1rem' }}>⏳</div>
+              <h3>Processing Request...</h3>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                {activeStep === 'step1' 
-                  ? 'Reading PO numbers, products, crops, activities, and budget figures.'
-                  : 'Constructing 11 PO summary blocks per sheet with exact styling, formulas, and headers.'
-                }
+                Please wait while PDF text extraction and Excel generation is in progress.
+              </p>
+            </div>
+          ) : result ? (
+            <ResultPanel result={result} isSummary={true} />
+          ) : (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '3rem 1rem' }}>
+              <h3>Ready to Process</h3>
+              <p style={{ marginTop: '0.5rem' }}>
+                Fill out the required inputs on the left and click the submit button to execute.
               </p>
             </div>
           )}
-
-          <ResultPanel result={result} isSummary={true} />
-
         </div>
       </div>
     </div>

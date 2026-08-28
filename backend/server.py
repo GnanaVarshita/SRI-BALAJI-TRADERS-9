@@ -577,6 +577,45 @@ class APIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json(500, {"success": False, "message": f"TBM Summary generation failed: {e}"})
 
+    def handle_sync_tbm_cards_local(self, data):
+        try:
+            import card_sync_engine
+            cards_path_str = data.get("cardsExcelPath", "").strip() or data.get("cardsSummaryPath", "").strip()
+            tbm_path_str = data.get("tbmSummaryPath", "").strip() or data.get("tbmExcelPath", "").strip()
+            output_path_str = data.get("outputPath", "").strip()
+            sv_percent = float(data.get("serviceChargePercent", 5.0) or 5.0)
+
+            if not cards_path_str:
+                self.send_json(400, {"success": False, "message": "PO Cards Summary Excel file path is required"})
+                return
+            if not tbm_path_str:
+                self.send_json(400, {"success": False, "message": "Consolidated TBM Summary Excel file path is required"})
+                return
+
+            cards_path = Path(cards_path_str)
+            tbm_path = Path(tbm_path_str)
+
+            if not cards_path.exists() or not cards_path.is_file():
+                self.send_json(400, {"success": False, "message": f"Cards summary file does not exist at: {cards_path_str}"})
+                return
+            if not tbm_path.exists() or not tbm_path.is_file():
+                self.send_json(400, {"success": False, "message": f"TBM summary file does not exist at: {tbm_path_str}"})
+                return
+
+            res = card_sync_engine.sync_tbm_with_cards(
+                cards_excel_path=cards_path,
+                tbm_summary_excel_path=tbm_path,
+                output_path=output_path_str if output_path_str else None,
+                service_charge_percent=sv_percent
+            )
+
+            if res.get("success"):
+                self.send_json(200, res)
+            else:
+                self.send_json(400, res)
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Cards synchronization failed: {e}"})
+
     def handle_api_post(self, path, body_bytes, content_type):
         global is_syncing, sync_thread
         
@@ -619,6 +658,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/generate-tbm-summary':
             self.handle_generate_tbm_summary_local(data)
+            return
+
+        if path == '/api/sync-tbm-cards':
+            self.handle_sync_tbm_cards_local(data)
             return
 
         if path == '/api/config':

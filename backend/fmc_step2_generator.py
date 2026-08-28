@@ -3,6 +3,12 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from pathlib import Path
 import re
+import sys
+sys.path.append(str(Path(__file__).resolve().parent))
+try:
+    from excel_parser import load_any_workbook
+except ImportError:
+    from .excel_parser import load_any_workbook
 
 def parse_pos_from_step1_sheet(ws):
     pos = []
@@ -137,11 +143,11 @@ def write_po_summary_block(ws, start_r, po_data, territory='Nandyal', am_name='M
         2: ("DATE", green_bold),
         3: ("AREA", green_bold),
         4: ("NUMBER", red_bold),
-        5: ("BUDGET", red_bold),
-        6: ("Product", red_bold),
-        7: ("Crop", red_bold),
+        5: ("BUDGET TYPE", red_bold),
+        6: ("PRODUCT", red_bold),
+        7: ("CROP", red_bold),
         8: ("ACTIVITY", red_bold),
-        9: ("RBM", red_bold),
+        9: ("ZDGM", red_bold),
         10: ("MIE", red_bold)
     }
     for col_i, (h_txt, h_font) in main_headers.items():
@@ -298,7 +304,6 @@ def get_existing_card_pos(wb):
                     card_pos.add(str(po_val).strip())
     return card_pos
 
-from excel_parser import load_any_workbook
 
 def generate_fmc_step2_summaries(excel_file_path, territory='Nandyal', am_name='Madhavareddy'):
     excel_path = Path(excel_file_path)
@@ -390,6 +395,12 @@ def generate_fmc_step2_summaries(excel_file_path, territory='Nandyal', am_name='
                 write_po_summary_block(ws, start_r, po_item, **kwargs)
 
             apply_col_widths(ws)
+
+    # Write sheet summary tables at row 240 for all card sheets
+    from card_sync_engine import write_sheet_end_summary_table
+    for sheetname in wb.sheetnames:
+        if sheetname != 'Sheet1':
+            write_sheet_end_summary_table(wb[sheetname], start_row=240)
 
     wb.save(excel_path)
     wb.close()
