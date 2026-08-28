@@ -523,6 +523,31 @@ class APIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json(500, {"success": False, "message": f"FMC Step 2 Summary generation failed: {e}"})
 
+    def handle_format_tbm_summaries_local(self, data):
+        try:
+            import tbm_formatter
+            folder_or_file_str = data.get("path", "").strip() or data.get("tbmFolderPath", "").strip()
+            if not folder_or_file_str:
+                self.send_json(400, {"success": False, "message": "TBM folder or file path is required"})
+                return
+
+            target_path = Path(folder_or_file_str)
+            if not target_path.exists():
+                self.send_json(400, {"success": False, "message": f"Path does not exist at: {folder_or_file_str}"})
+                return
+
+            if target_path.is_file():
+                res = tbm_formatter.format_tbm_workbook(target_path)
+            else:
+                res = tbm_formatter.format_all_tbm_summaries_in_folder(target_path)
+
+            if res.get("success"):
+                self.send_json(200, res)
+            else:
+                self.send_json(400, res)
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"TBM Formatting failed: {e}"})
+
     def handle_generate_tbm_summary_local(self, data):
         try:
             import tbm_summary_generator
@@ -586,6 +611,10 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/generate-fmc-step2':
             self.handle_generate_fmc_step2_local(data)
+            return
+
+        if path == '/api/format-tbm-summaries':
+            self.handle_format_tbm_summaries_local(data)
             return
 
         if path == '/api/generate-tbm-summary':

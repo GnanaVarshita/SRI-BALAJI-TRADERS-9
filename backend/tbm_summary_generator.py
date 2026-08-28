@@ -77,123 +77,18 @@ FIELD_KEYWORDS = {
     'po_number': ['po number', 'po.no', 'ponumber', 'po #']
 }
 
-def find_header_row_and_mapping(ws):
-    """
-    Openpyxl header row scanner combining multi-line split headers (row r-1 + row r).
-    """
-    best_row = None
-    best_map = {}
-    best_score = 0
-
-    max_r = min(ws.max_row or 25, 25)
-    for r in range(1, max_r + 1):
-        current_map = {}
-        score = 0
-        for col_idx in range(1, 25):
-            top_txt = clean_str(ws.cell(r - 1, col_idx).value).lower() if r > 1 else ""
-            curr_txt = clean_str(ws.cell(r, col_idx).value).lower()
-            comb_txt = f"{top_txt} {curr_txt}".strip()
-            if not comb_txt:
-                continue
-
-            for field, kw_list in FIELD_KEYWORDS.items():
-                if field not in current_map:
-                    if any(kw in comb_txt for kw in kw_list):
-                        current_map[field] = col_idx
-                        score += 1
-                        break
-        if score > best_score and score >= 3:
-            best_score = score
-            best_row = r
-            best_map = current_map
-
-    return best_row, best_map
+import sys
+sys.path.append(str(Path(__file__).resolve().parent))
+try:
+    import tbm_formatter
+except ImportError:
+    from . import tbm_formatter
 
 def extract_activities_from_sheet(ws, tbm_folder_name, file_name):
-    header_r, col_map = find_header_row_and_mapping(ws)
-    activities = []
-
-    if not header_r:
-        slip_act = parse_slip_format(ws, tbm_folder_name)
-        if slip_act:
-            return [slip_act]
-        return []
-
-    sheet_po_number = ""
-    for r in range(1, 10):
-        for c in range(1, 20):
-            val = clean_str(ws.cell(r, c).value)
-            m = re.search(r'5\d{2}[A-Z0-9]{8,12}', val, re.I)
-            if m:
-                sheet_po_number = m.group(0).upper()
-                break
-        if sheet_po_number:
-            break
-
-    max_r = ws.max_row or 100
-    for r in range(header_r + 1, min(max_r + 1, 300)):
-        row_vals = [ws.cell(r, c).value for c in range(1, 25)]
-        if not any(row_vals):
-            continue
-
-        first_col_val = clean_str(row_vals[0]).lower()
-        second_col_val = clean_str(row_vals[1]).lower() if len(row_vals) > 1 else ""
-        date_col_val = clean_str(ws.cell(r, col_map.get('date', 2)).value).lower()
-        if first_col_val == 'total' or second_col_val == 'total' or date_col_val == 'total':
-            break
-
-        date_val = format_date_val(ws.cell(r, col_map.get('date', 2)).value if 'date' in col_map else row_vals[1])
-        tbm_val = clean_str(ws.cell(r, col_map.get('tbm', 0)).value) if 'tbm' in col_map and col_map['tbm'] <= len(row_vals) else ""
-        if not tbm_val:
-            tbm_val = tbm_folder_name
-
-        zdgm_val = clean_str(ws.cell(r, col_map.get('zdgm', 0)).value) if 'zdgm' in col_map and col_map['zdgm'] <= len(row_vals) else ""
-        mdo_val = clean_str(ws.cell(r, col_map.get('mdo', 0)).value) if 'mdo' in col_map and col_map['mdo'] <= len(row_vals) else ""
-        territory_val = clean_str(ws.cell(r, col_map.get('territory', 0)).value) if 'territory' in col_map and col_map['territory'] <= len(row_vals) else ""
-        product_val = clean_str(ws.cell(r, col_map.get('product', 0)).value) if 'product' in col_map and col_map['product'] <= len(row_vals) else ""
-        crop_val = clean_str(ws.cell(r, col_map.get('crop', 0)).value) if 'crop' in col_map and col_map['crop'] <= len(row_vals) else ""
-        activity_val = clean_str(ws.cell(r, col_map.get('activity', 0)).value) if 'activity' in col_map and col_map['activity'] <= len(row_vals) else ""
-        village_val = clean_str(ws.cell(r, col_map.get('village', 0)).value) if 'village' in col_map and col_map['village'] <= len(row_vals) else ""
-        farmers_val = parse_num(ws.cell(r, col_map.get('farmers', 0)).value) if 'farmers' in col_map and col_map['farmers'] <= len(row_vals) else 0.0
-
-        tent_val = parse_num(ws.cell(r, col_map.get('tent', 0)).value) if 'tent' in col_map and col_map['tent'] <= len(row_vals) else 0.0
-        food_val = parse_num(ws.cell(r, col_map.get('food', 0)).value) if 'food' in col_map and col_map['food'] <= len(row_vals) else 0.0
-        transport_val = parse_num(ws.cell(r, col_map.get('transport', 0)).value) if 'transport' in col_map and col_map['transport'] <= len(row_vals) else 0.0
-        others_val = parse_num(ws.cell(r, col_map.get('others', 0)).value) if 'others' in col_map and col_map['others'] <= len(row_vals) else 0.0
-
-        total_val = parse_num(ws.cell(r, col_map.get('total', 0)).value) if 'total' in col_map and col_map['total'] <= len(row_vals) else 0.0
-        calc_total = tent_val + food_val + transport_val + others_val
-        if total_val == 0.0 and calc_total > 0.0:
-            total_val = calc_total
-
-        po_val = clean_str(ws.cell(r, col_map.get('po_number', 0)).value) if 'po_number' in col_map and col_map['po_number'] <= len(row_vals) else ""
-        if not po_val and sheet_po_number:
-            po_val = sheet_po_number
-
-        if not activity_val and not product_val and total_val == 0.0 and not date_val:
-            continue
-
-        activities.append({
-            'date': date_val,
-            'zdgm': zdgm_val,
-            'tbm': tbm_val,
-            'mdo': mdo_val,
-            'territory': territory_val,
-            'product': product_val,
-            'crop': crop_val,
-            'activity': activity_val,
-            'village': village_val,
-            'farmers': int(farmers_val),
-            'tent': tent_val,
-            'food': food_val,
-            'transport': transport_val,
-            'others': others_val,
-            'total': total_val,
-            'po_number': po_val,
-            'source_file': file_name
-        })
-
-    return activities
+    acts = tbm_formatter.extract_activities_from_sheet(ws, default_tbm_name=tbm_folder_name)
+    for a in acts:
+        a['source_file'] = file_name
+    return acts
 
 def extract_activities_from_xlrd_sheet(sh, datemode, tbm_folder_name, file_name):
     """
@@ -600,10 +495,22 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
             if suf in ['.xlsx', '.xlsm']:
                 try:
                     wb_in = openpyxl.load_workbook(ef, data_only=True)
-                    for sname in wb_in.sheetnames:
+                    # Prefer formatted sheet (Sheet 2) if it contains activities; otherwise use Sheet 1
+                    target_sheets = []
+                    if len(wb_in.sheetnames) >= 2:
+                        target_sheets = [wb_in.sheetnames[1], wb_in.sheetnames[0]]
+                    else:
+                        target_sheets = wb_in.sheetnames
+
+                    extracted_for_file = []
+                    for sname in target_sheets:
                         ws_in = wb_in[sname]
                         sheet_activities = extract_activities_from_sheet(ws_in, tbm_name, ef.name)
-                        all_extracted_rows.extend(sheet_activities)
+                        if sheet_activities:
+                            extracted_for_file = sheet_activities
+                            break
+                    
+                    all_extracted_rows.extend(extracted_for_file)
                     wb_in.close()
                 except Exception as e:
                     print(f"Error reading {suf} file {ef.name}: {e}")
