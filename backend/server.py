@@ -148,15 +148,21 @@ class APIHandler(BaseHTTPRequestHandler):
                     company = parts[0].replace(" POs", "").strip() if len(parts) > 0 else "Unknown"
                     
                     year = "Unknown"
-                    area = "Unknown"
-                    if len(parts) > 1:
-                        year_match = re.search(r'(\d{4}-\d{4})', parts[1])
+                    year_idx = -1
+                    for idx, p in enumerate(parts):
+                        year_match = re.search(r'(\d{4}-\d{4})', p)
                         if year_match:
                             year = year_match.group(1)
-                    if len(parts) > 2:
-                        area_match = re.match(r'([a-zA-Z\s]+)', parts[2])
-                        if area_match:
-                            area = area_match.group(1).strip()
+                            year_idx = idx
+                            break
+                    
+                    area = "Unknown"
+                    if year_idx > 1:
+                        area = parts[1].strip()
+                    elif year_idx == 1 and len(parts) > 2:
+                        area = parts[2].replace(" POs", "").replace(" Pos", "").strip()
+                    elif len(parts) > 1:
+                        area = parts[1].strip()
                     
                     stat = path.stat()
                     mod_time = datetime.datetime.fromtimestamp(stat.st_mtime).isoformat()
@@ -186,7 +192,7 @@ class APIHandler(BaseHTTPRequestHandler):
             return
 
         allowed = False
-        for allowed_dir in ["Corteva POs", "New Gen POs", "FMC POs"]:
+        for allowed_dir in ["Corteva POs", "New Gen POs", "FMC POs", "CORTEVA", "FMC", "NEW GEN"]:
             allowed_abs = (WORKSPACE_DIR / allowed_dir).resolve()
             if str(file_abs_path).startswith(str(allowed_abs)):
                 allowed = True
@@ -264,7 +270,7 @@ class APIHandler(BaseHTTPRequestHandler):
                     root.withdraw()
                     root.attributes("-topmost", True)
                     path = filedialog.askopenfilename(
-                        initialdir="D:/SRI BALAJI TRADERS",
+                        initialdir=str(WORKSPACE_DIR),
                         title="Select Budget Excel File",
                         filetypes=[("Excel files", "*.xlsx;*.xls;*.xlsm;*.xlsb;*.csv"), ("All files", "*.*")]
                     )
@@ -295,7 +301,7 @@ class APIHandler(BaseHTTPRequestHandler):
                     root.withdraw()
                     root.attributes("-topmost", True)
                     path = filedialog.askdirectory(
-                        initialdir="D:/SRI BALAJI TRADERS",
+                        initialdir=str(WORKSPACE_DIR),
                         title="Select Save Folder"
                     )
                     root.destroy()

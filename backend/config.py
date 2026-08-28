@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 # Workspace Root Paths
-WORKSPACE_DIR = Path("D:/SRI BALAJI TRADERS")
+WORKSPACE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = WORKSPACE_DIR / ".env"
 PROCESSED_DB_PATH = WORKSPACE_DIR / "processed_emails.json"
 

@@ -279,7 +279,7 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.form-group label {
+.form-group label, .form-field .form-label {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-gold);
@@ -287,7 +287,18 @@ button:disabled {
   letter-spacing: 0.5px;
 }
 
-input, select {
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-help {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+input, select, textarea {
   width: 100%;
   padding: 0.75rem;
   font-size: 0.95rem;
@@ -298,11 +309,20 @@ input, select {
   transition: all 0.2s;
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary-color);
   background-color: #ffffff;
   box-shadow: 0 0 8px rgba(170, 124, 17, 0.15);
+}
+
+.path-input-textarea {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-family: 'Consolas', 'Courier New', Courier, monospace, sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 /* File Explorer Styling */
@@ -353,10 +373,11 @@ input:focus, select:focus {
 }
 
 .filename-cell {
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  min-width: 180px;
+  max-width: 450px;
 }
 
 .download-link {
