@@ -173,25 +173,26 @@ def write_sheet_end_summary_table(ws, start_row=240):
                     'crop': c_crop,
                     'act': act_str,
                     'budget_ref': f'P{curr_r}',
+                    'spent_ref': f'S{curr_r}',
                     'bal_ref': f'T{curr_r}'
                 })
 
     if not entries:
         return
 
-    # Clear prior table area (rows 240 to 285, cols 8 to 13)
+    # Clear prior table area (rows 240 to 285, cols 8 to 14)
     for cr in range(start_row, start_row + 45):
-        for cc in range(8, 14):
+        for cc in range(8, 15):
             ws.cell(cr, cc).value = None
             ws.cell(cr, cc).border = Border()
 
     # Headers in row start_row
-    headers = ['Pos', 'Product', 'Crop', 'Activity', 'Budget', 'Balance']
+    headers = ['Pos', 'Product', 'Crop', 'Activity', 'Budget', 'Spent', 'Balance']
     for c_i, h_text in enumerate(headers, start=8):
         c = ws.cell(start_row, c_i, h_text)
         c.font = header_font
         c.border = border
-        c.alignment = Alignment(horizontal='right' if h_text in ['Budget', 'Balance'] else 'center', vertical='center')
+        c.alignment = Alignment(horizontal='right' if h_text in ['Budget', 'Spent', 'Balance'] else 'center', vertical='center')
 
     # Data rows
     for e_idx, e in enumerate(entries):
@@ -228,8 +229,15 @@ def write_sheet_end_summary_table(ws, start_row=240):
         c.alignment = Alignment(horizontal='right', vertical='center')
         c.number_format = '#,##0'
 
+        # Spent
+        c = ws.cell(row_r, 13, f"={e['spent_ref']}")
+        c.font = regular_font
+        c.border = border
+        c.alignment = Alignment(horizontal='right', vertical='center')
+        c.number_format = '#,##0.00'
+
         # Balance
-        c = ws.cell(row_r, 13, f"={e['bal_ref']}")
+        c = ws.cell(row_r, 14, f"={e['bal_ref']}")
         c.font = regular_font
         c.border = border
         c.alignment = Alignment(horizontal='right', vertical='center')
@@ -254,6 +262,12 @@ def write_sheet_end_summary_table(ws, start_row=240):
     c.number_format = '#,##0'
 
     c = ws.cell(tot_r, 13, f"=SUM(M{start_row+1}:M{tot_r-1})")
+    c.font = bold_font
+    c.border = border
+    c.alignment = Alignment(horizontal='right', vertical='center')
+    c.number_format = '#,##0.00'
+
+    c = ws.cell(tot_r, 14, f"=SUM(N{start_row+1}:N{tot_r-1})")
     c.font = bold_font
     c.border = border
     c.alignment = Alignment(horizontal='right', vertical='center')
