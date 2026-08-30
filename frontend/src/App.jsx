@@ -11,6 +11,8 @@ import SummaryView from './components/views/SummaryView';
 import FmcSummaryView from './components/views/FmcSummaryView';
 import TbmSummaryView from './components/views/TbmSummaryView';
 import SyncBalancesView from './components/views/SyncBalancesView';
+import InvoiceGeneratorView from './components/views/InvoiceGeneratorView';
+import DetailsOfBillsView from './components/views/DetailsOfBillsView';
 import SettingsView from './components/views/SettingsView';
 
 function App() {
@@ -192,6 +194,14 @@ function App() {
             <Route 
               path="/sync-balances" 
               element={<SyncBalancesView />} 
+            />
+            <Route 
+              path="/invoices" 
+              element={<InvoiceGeneratorView />} 
+            />
+            <Route 
+              path="/details-of-bills" 
+              element={<DetailsOfBillsView />} 
             />
             <Route 
               path="/settings" 

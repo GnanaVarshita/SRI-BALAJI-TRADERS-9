@@ -616,6 +616,86 @@ class APIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json(500, {"success": False, "message": f"Cards synchronization failed: {e}"})
 
+    def handle_generate_invoices_local(self, data):
+        try:
+            import invoice_generator
+            company = data.get("company", "Corteva").strip()
+            tbm_summary_path = data.get("tbmSummaryPath", "").strip()
+            save_folder_path = data.get("saveFolderPath", "").strip()
+            invoice_number = data.get("invoiceNumber", "").strip()
+            po_number = data.get("poNumber", "").strip()
+            service_charge_pct = float(data.get("serviceChargePercent", 5.0) or 5.0)
+            invoice_date = data.get("invoiceDate", "").strip() or None
+            po_value = float(data.get("poValue", 0.0) or 0.0) if data.get("poValue") else None
+            requester_name = data.get("requesterName", "").strip() or None
+            area = data.get("area", "").strip() or None
+
+            if not tbm_summary_path:
+                self.send_json(400, {"success": False, "message": "All-TBMs Summary Excel file path is required"})
+                return
+            if not save_folder_path:
+                self.send_json(400, {"success": False, "message": "Save folder path is required"})
+                return
+            if not invoice_number:
+                self.send_json(400, {"success": False, "message": "Invoice Number is required"})
+                return
+            if not po_number:
+                self.send_json(400, {"success": False, "message": "PO Number is a mandatory field"})
+                return
+
+            res = invoice_generator.generate_or_update_invoice(
+                company=company,
+                tbm_summary_path=tbm_summary_path,
+                save_folder_path=save_folder_path,
+                invoice_number=invoice_number,
+                po_number=po_number,
+                service_charge_pct=service_charge_pct,
+                invoice_date=invoice_date,
+                po_value=po_value,
+                requester_name=requester_name,
+                area=area
+            )
+            self.send_json(200, res)
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Invoice generation failed: {e}"})
+
+    def handle_scan_pos_in_summary_local(self, data):
+        try:
+            import invoice_generator
+            tbm_summary_path = data.get("tbmSummaryPath", "").strip()
+            if not tbm_summary_path:
+                self.send_json(400, {"success": False, "message": "TBM Summary path is required"})
+                return
+            pos = invoice_generator.scan_pos_in_summary(tbm_summary_path)
+            self.send_json(200, {"success": True, "pos": pos})
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Scan POs failed: {e}"})
+
+    def handle_sync_details_of_bills_local(self, data):
+        try:
+            import details_of_bills_generator
+            details_excel_path = data.get("detailsExcelPath", "").strip()
+            invoices_folder_path = data.get("invoicesFolderPath", "").strip()
+            budget_cards_path = data.get("budgetCardsPath", "").strip() or None
+            financial_year = data.get("financialYear", "").strip() or "APRIL 2026 to MARCH 2027"
+
+            if not details_excel_path:
+                self.send_json(400, {"success": False, "message": "Details of Bills Excel file path is required"})
+                return
+            if not invoices_folder_path:
+                self.send_json(400, {"success": False, "message": "Invoices Folder path is required"})
+                return
+
+            res = details_of_bills_generator.scan_and_append_invoices(
+                details_excel_path=details_excel_path,
+                invoices_folder_path=invoices_folder_path,
+                budget_cards_path=budget_cards_path,
+                financial_year=financial_year
+            )
+            self.send_json(200, res)
+        except Exception as e:
+            self.send_json(500, {"success": False, "message": f"Details of Bills synchronization failed: {e}"})
+
     def handle_api_post(self, path, body_bytes, content_type):
         global is_syncing, sync_thread
         
@@ -662,6 +742,18 @@ class APIHandler(BaseHTTPRequestHandler):
 
         if path == '/api/sync-tbm-cards':
             self.handle_sync_tbm_cards_local(data)
+            return
+
+        if path == '/api/generate-invoices':
+            self.handle_generate_invoices_local(data)
+            return
+
+        if path == '/api/scan-pos-in-summary':
+            self.handle_scan_pos_in_summary_local(data)
+            return
+
+        if path == '/api/sync-details-of-bills':
+            self.handle_sync_details_of_bills_local(data)
             return
 
         if path == '/api/config':

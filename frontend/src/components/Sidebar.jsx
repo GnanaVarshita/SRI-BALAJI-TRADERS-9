@@ -54,6 +54,18 @@ function Sidebar() {
           <span className="nav-icon">⚖️</span> Sync Spent &amp; Balances
         </NavLink>
         <NavLink 
+          to="/invoices" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">🧾</span> Tax Invoice Gen
+        </NavLink>
+        <NavLink 
+          to="/details-of-bills" 
+          className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon">📑</span> Details of Bills
+        </NavLink>
+        <NavLink 
           to="/settings" 
           className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
         >
