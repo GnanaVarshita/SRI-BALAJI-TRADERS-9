@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import BrowseField from '../common/BrowseField';
-import SelectField from '../common/SelectField';
 import ResultPanel from '../common/ResultPanel';
+import FmcBudgetStep1Card from '../fmc/FmcBudgetStep1Card';
+import FmcCardsStep2Card from '../fmc/FmcCardsStep2Card';
+import { api } from '../../services/api';
+import { useFileBrowser } from '../../hooks/useFileBrowser';
 
 function FmcSummaryView() {
-  const [activeStep, setActiveStep] = useState('step1'); // 'step1' or 'step2'
+  const [activeStep, setActiveStep] = useState('step1');
 
   // Step 1 states
   const [inputFolderPath, setInputFolderPath] = useState('');
@@ -18,74 +20,42 @@ function FmcSummaryView() {
   const [excelPath, setExcelPath] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [browseInputLoading, setBrowseInputLoading] = useState(false);
-  const [browseFolderLoading, setBrowseFolderLoading] = useState(false);
-  const [browseExcelLoading, setBrowseExcelLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
+  const inputFolderBrowser = useFileBrowser();
+  const saveFolderBrowser = useFileBrowser();
+  const excelFileBrowser = useFileBrowser();
+
   // Step 1 Browsers
-  const handleBrowseInputFolder = async () => {
-    setBrowseInputLoading(true);
+  const handleBrowseInputFolder = () => {
     setErrorMsg(null);
     setResult(null);
-    try {
-      const res = await fetch('/api/browse-folder', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success && data.folderPath) {
-        setInputFolderPath(data.folderPath);
-        const parentFolder = data.folderPath.substring(0, data.folderPath.lastIndexOf(data.folderPath.includes('/') ? '/' : '\\'));
-        setSaveFolderPath(parentFolder);
-      } else if (data.message) {
-        setErrorMsg(data.message);
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to open folder browser dialog.');
-    } finally {
-      setBrowseInputLoading(false);
-    }
+    inputFolderBrowser.browseFolder((folderPath) => {
+      setInputFolderPath(folderPath);
+      const parentFolder = folderPath.substring(
+        0,
+        folderPath.lastIndexOf(folderPath.includes('/') ? '/' : '\\')
+      );
+      setSaveFolderPath(parentFolder);
+    });
   };
 
-  const handleBrowseSaveFolder = async () => {
-    setBrowseFolderLoading(true);
+  const handleBrowseSaveFolder = () => {
     setErrorMsg(null);
     setResult(null);
-    try {
-      const res = await fetch('/api/browse-folder', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success && data.folderPath) {
-        setSaveFolderPath(data.folderPath);
-      } else if (data.message) {
-        setErrorMsg(data.message);
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to open folder browser dialog.');
-    } finally {
-      setBrowseFolderLoading(false);
-    }
+    saveFolderBrowser.browseFolder((folderPath) => {
+      setSaveFolderPath(folderPath);
+    });
   };
 
   // Step 2 Browser
-  const handleBrowseExcel = async () => {
-    setBrowseExcelLoading(true);
+  const handleBrowseExcel = () => {
     setErrorMsg(null);
     setResult(null);
-    try {
-      const res = await fetch('/api/browse-file', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success && data.filePath) {
-        setExcelPath(data.filePath);
-      } else if (data.message) {
-        setErrorMsg(data.message);
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to open file browser dialog.');
-    } finally {
-      setBrowseExcelLoading(false);
-    }
+    excelFileBrowser.browseFile((filePath) => {
+      setExcelPath(filePath);
+    });
   };
 
   // Step 1 Submit
@@ -105,24 +75,14 @@ function FmcSummaryView() {
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/generate-fmc-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputFolderPath, saveFolderPath, amName }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setResult(data);
-        if (data.outputPath) {
-          setExcelPath(data.outputPath);
-        }
-      } else {
-        setErrorMsg(data.message || 'Failed to generate FMC Master Budget sheet.');
+      const data = await api.generateFmcSummary({ inputFolderPath, saveFolderPath, amName });
+      setResult(data);
+      if (data.outputPath) {
+        setExcelPath(data.outputPath);
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Network error: Failed to contact the backend server.');
+      setErrorMsg(err.message || 'Failed to generate FMC Master Budget sheet.');
     } finally {
       setLoading(false);
     }
@@ -141,43 +101,43 @@ function FmcSummaryView() {
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/generate-fmc-step2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ excelPath, amName }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setResult(data);
-      } else {
-        setErrorMsg(data.message || 'Failed to generate PO Summary Cards.');
-      }
+      const data = await api.generateFmcStep2({ excelPath, amName });
+      setResult(data);
     } catch (err) {
       console.error(err);
-      setErrorMsg('Network error: Failed to contact the backend server.');
+      setErrorMsg(err.message || 'Failed to generate PO Summary Cards.');
     } finally {
       setLoading(false);
     }
   };
 
+  const activeError =
+    errorMsg ||
+    inputFolderBrowser.error ||
+    saveFolderBrowser.error ||
+    excelFileBrowser.error;
+
   return (
     <div className="view-container">
       <div className="view-header">
         <h2>FMC PO Summary Generator</h2>
-        <p className="subtitle">Step 1: Build master budget table from PO PDFs. Step 2: Generate 11 PO summary cards per sheet in your workbook.</p>
+        <p className="subtitle">
+          Step 1: Build master budget table from PO PDFs. Step 2: Generate 11 PO summary cards per sheet in your workbook.
+        </p>
       </div>
 
       {/* Step Tabs */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        <button 
+        <button
+          type="button"
           className={activeStep === 'step1' ? 'primary' : 'secondary'}
           onClick={() => setActiveStep('step1')}
           style={{ padding: '0.75rem 1.5rem', fontWeight: 'bold' }}
         >
           Step 1: Master Budget Table (From PDFs)
         </button>
-        <button 
+        <button
+          type="button"
           className={activeStep === 'step2' ? 'primary' : 'secondary'}
           onClick={() => setActiveStep('step2')}
           style={{ padding: '0.75rem 1.5rem', fontWeight: 'bold' }}
@@ -190,88 +150,51 @@ function FmcSummaryView() {
         {/* Settings Form Card */}
         <div className="card">
           {activeStep === 'step1' ? (
-            <>
-              <h2>Step 1: Extract PDFs &amp; Build Budget Sheet</h2>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                Inspects all PO PDFs in your selected folder, extracts PO numbers, products, crops, activities, and budget figures without duplicates.
-              </p>
-              <form onSubmit={handleStep1Submit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                
-                <SelectField 
-                  label="AM (Area Manager) Name"
-                  value={amName}
-                  onChange={(e) => setAmName(e.target.value)}
-                  options={amOptions}
-                />
-
-                <BrowseField 
-                  label="Input FMC POs PDF Folder"
-                  value={inputFolderPath}
-                  onChange={(e) => setInputFolderPath(e.target.value)}
-                  onBrowse={handleBrowseInputFolder}
-                  browseLoading={browseInputLoading}
-                  disabled={loading}
-                />
-
-                <BrowseField 
-                  label="Save Folder Path"
-                  value={saveFolderPath}
-                  onChange={(e) => setSaveFolderPath(e.target.value)}
-                  onBrowse={handleBrowseSaveFolder}
-                  browseLoading={browseFolderLoading}
-                  disabled={loading}
-                />
-
-                <button type="submit" className="primary" disabled={loading || !inputFolderPath || !saveFolderPath} style={{ marginTop: '0.5rem' }}>
-                  {loading ? 'Processing FMC PDFs...' : '📄 Step 1: Build / Append Master Budget Sheet'}
-                </button>
-              </form>
-            </>
+            <FmcBudgetStep1Card
+              amName={amName}
+              setAmName={setAmName}
+              amOptions={amOptions}
+              inputFolderPath={inputFolderPath}
+              setInputFolderPath={setInputFolderPath}
+              saveFolderPath={saveFolderPath}
+              setSaveFolderPath={setSaveFolderPath}
+              loading={loading}
+              onSubmit={handleStep1Submit}
+              onBrowseInputFolder={handleBrowseInputFolder}
+              onBrowseSaveFolder={handleBrowseSaveFolder}
+              browseInputLoading={inputFolderBrowser.loading}
+              browseFolderLoading={saveFolderBrowser.loading}
+            />
           ) : (
-            <>
-              <h2>Step 2: Generate PO Summary Cards</h2>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                Select the FMC Budget Excel file from Step 1. Creates formatted individual PO summary card sheets (11 cards per sheet).
-              </p>
-              <form onSubmit={handleStep2Submit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                
-                <SelectField 
-                  label="AM (Area Manager) Name"
-                  value={amName}
-                  onChange={(e) => setAmName(e.target.value)}
-                  options={amOptions}
-                />
-
-                <BrowseField 
-                  label="Target FMC Budget Excel File (Step 1 Output)"
-                  value={excelPath}
-                  onChange={(e) => setExcelPath(e.target.value)}
-                  onBrowse={handleBrowseExcel}
-                  browseLoading={browseExcelLoading}
-                  disabled={loading}
-                />
-
-                <button type="submit" className="primary" disabled={loading || !excelPath} style={{ marginTop: '0.5rem' }}>
-                  {loading ? 'Generating Cards...' : '🗂️ Step 2: Generate / Append Summary Cards'}
-                </button>
-              </form>
-            </>
+            <FmcCardsStep2Card
+              amName={amName}
+              setAmName={setAmName}
+              amOptions={amOptions}
+              excelPath={excelPath}
+              setExcelPath={setExcelPath}
+              loading={loading}
+              onSubmit={handleStep2Submit}
+              onBrowseExcel={handleBrowseExcel}
+              browseExcelLoading={excelFileBrowser.loading}
+            />
           )}
         </div>
 
         {/* Execution Output Card */}
         <div className="card">
           <h2>Execution Status</h2>
-          
-          {errorMsg && (
+
+          {activeError && (
             <div className="toast error" style={{ width: '100%', marginBottom: '1.5rem' }}>
-              ⚠️ {errorMsg}
+              ⚠️ {activeError}
             </div>
           )}
 
           {loading ? (
             <div style={{ textAlign: 'center', color: 'var(--primary-color)', padding: '3rem 1rem' }}>
-              <div className="spinner" style={{ fontSize: '2.5rem', display: 'inline-block', marginBottom: '1rem' }}>⏳</div>
+              <div className="spinner" style={{ fontSize: '2.5rem', display: 'inline-block', marginBottom: '1rem' }}>
+                ⏳
+              </div>
               <h3>Processing Request...</h3>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                 Please wait while PDF text extraction and Excel generation is in progress.

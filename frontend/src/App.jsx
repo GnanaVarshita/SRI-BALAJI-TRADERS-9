@@ -15,18 +15,20 @@ import InvoiceGeneratorView from './components/views/InvoiceGeneratorView';
 import DetailsOfBillsView from './components/views/DetailsOfBillsView';
 import SettingsView from './components/views/SettingsView';
 
+import { api } from './services/api';
+
 function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [hasPassword, setHasPassword] = useState(false);
-  
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [totalSynced, setTotalSynced] = useState(0);
   const [logs, setLogs] = useState([]);
-  
+
   const [statusMessage, setStatusMessage] = useState(null);
   const [messageType, setMessageType] = useState('success');
-  
+
   const consoleRef = useRef(null);
 
   useEffect(() => {
@@ -46,12 +48,9 @@ function App() {
 
   const fetchConfig = async () => {
     try {
-      const res = await fetch('/api/config');
-      if (res.ok) {
-        const data = await res.json();
-        setEmail(data.email || '');
-        setHasPassword(data.hasPassword || false);
-      }
+      const data = await api.getConfig();
+      setEmail(data.email || '');
+      setHasPassword(data.hasPassword || false);
     } catch (err) {
       console.error('Error fetching config:', err);
     }
@@ -59,13 +58,10 @@ function App() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch('/api/status');
-      if (res.ok) {
-        const data = await res.json();
-        setIsSyncing(data.isSyncing);
-        setLogs(data.logs || []);
-        setTotalSynced(data.totalSynced || 0);
-      }
+      const data = await api.getStatus();
+      setIsSyncing(data.isSyncing);
+      setLogs(data.logs || []);
+      setTotalSynced(data.totalSynced || 0);
     } catch (err) {
       console.error('Error fetching status:', err);
     }
@@ -74,12 +70,7 @@ function App() {
   const handleSaveCredentials = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await res.json();
+      const data = await api.saveConfig({ email, password });
       if (data.success) {
         showToast('Credentials saved successfully!');
         setPassword('');
@@ -88,15 +79,14 @@ function App() {
         showToast(data.message || 'Failed to save credentials', 'error');
       }
     } catch (err) {
-      showToast('Connection error: Failed to save credentials', 'error');
+      showToast(err.message || 'Connection error: Failed to save credentials', 'error');
     }
   };
 
   const handleStartSync = async () => {
     if (isSyncing) return;
     try {
-      const res = await fetch('/api/sync', { method: 'POST' });
-      const data = await res.json();
+      const data = await api.startSync();
       if (data.success) {
         setIsSyncing(true);
         showToast('Gmail Sync started!');
@@ -104,36 +94,30 @@ function App() {
         showToast(data.message || 'Failed to start sync', 'error');
       }
     } catch (err) {
-      showToast('Connection error: Failed to trigger sync', 'error');
+      showToast(err.message || 'Connection error: Failed to trigger sync', 'error');
     }
   };
 
   const handleOpenFolder = async (folder) => {
     try {
-      const res = await fetch('/api/open-folder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder })
-      });
-      const data = await res.json();
+      const data = await api.openFolder(folder);
       if (!data.success) {
         showToast(data.message || 'Failed to open folder', 'error');
       }
     } catch (err) {
-      showToast('Connection error: Failed to open folder', 'error');
+      showToast(err.message || 'Connection error: Failed to open folder', 'error');
     }
   };
 
   const handleResetHistory = async () => {
     const confirm = window.confirm(
-      "Are you sure you want to reset your sync history?\n\n" +
-      "This clears the database of processed email IDs. The next sync will re-process and check all attachments. No local files will be deleted."
+      'Are you sure you want to reset your sync history?\n\n' +
+        'This clears the database of processed email IDs. The next sync will re-process and check all attachments. No local files will be deleted.'
     );
     if (!confirm) return;
 
     try {
-      const res = await fetch('/api/reset', { method: 'POST' });
-      const data = await res.json();
+      const data = await api.resetSync();
       if (data.success) {
         showToast('Sync history has been reset complete.');
         fetchStatus();
@@ -141,7 +125,7 @@ function App() {
         showToast(data.message || 'Failed to reset history', 'error');
       }
     } catch (err) {
-      showToast('Connection error: Failed to reset history', 'error');
+      showToast(err.message || 'Connection error: Failed to reset history', 'error');
     }
   };
 
@@ -149,74 +133,53 @@ function App() {
     <Router>
       <div className="app">
         <Sidebar />
-        
+
         <main className="main-content">
           <Toast message={statusMessage} type={messageType} />
 
           <Routes>
-            <Route 
-              path="/" 
+            <Route
+              path="/"
               element={
-                <DashboardView 
-                  isSyncing={isSyncing} 
-                  totalSynced={totalSynced} 
-                  onOpenFolder={handleOpenFolder} 
+                <DashboardView
+                  isSyncing={isSyncing}
+                  totalSynced={totalSynced}
+                  onOpenFolder={handleOpenFolder}
                 />
-              } 
+              }
             />
-            <Route 
-              path="/sync" 
+            <Route
+              path="/sync"
               element={
-                <SyncView 
-                  isSyncing={isSyncing} 
-                  logs={logs} 
-                  consoleRef={consoleRef} 
-                  onStartSync={handleStartSync} 
+                <SyncView
+                  isSyncing={isSyncing}
+                  logs={logs}
+                  consoleRef={consoleRef}
+                  onStartSync={handleStartSync}
                 />
-              } 
+              }
             />
-            <Route 
-              path="/quotation" 
-              element={<QuotationView />} 
-            />
-            <Route 
-              path="/summary" 
-              element={<SummaryView />} 
-            />
-            <Route 
-              path="/fmc-summary" 
-              element={<FmcSummaryView />} 
-            />
-            <Route 
-              path="/tbm-summary" 
-              element={<TbmSummaryView />} 
-            />
-            <Route 
-              path="/sync-balances" 
-              element={<SyncBalancesView />} 
-            />
-            <Route 
-              path="/invoices" 
-              element={<InvoiceGeneratorView />} 
-            />
-            <Route 
-              path="/details-of-bills" 
-              element={<DetailsOfBillsView />} 
-            />
-            <Route 
-              path="/settings" 
+            <Route path="/quotation" element={<QuotationView />} />
+            <Route path="/summary" element={<SummaryView />} />
+            <Route path="/fmc-summary" element={<FmcSummaryView />} />
+            <Route path="/tbm-summary" element={<TbmSummaryView />} />
+            <Route path="/sync-balances" element={<SyncBalancesView />} />
+            <Route path="/invoices" element={<InvoiceGeneratorView />} />
+            <Route path="/details-of-bills" element={<DetailsOfBillsView />} />
+            <Route
+              path="/settings"
               element={
-                <SettingsView 
-                  email={email} 
-                  setEmail={setEmail} 
-                  password={password} 
-                  setPassword={setPassword} 
-                  hasPassword={hasPassword} 
-                  isSyncing={isSyncing} 
-                  onSave={handleSaveCredentials} 
-                  onResetHistory={handleResetHistory} 
+                <SettingsView
+                  email={email}
+                  setEmail={setEmail}
+                  password={password}
+                  setPassword={setPassword}
+                  hasPassword={hasPassword}
+                  isSyncing={isSyncing}
+                  onSave={handleSaveCredentials}
+                  onResetHistory={handleResetHistory}
                 />
-              } 
+              }
             />
           </Routes>
         </main>

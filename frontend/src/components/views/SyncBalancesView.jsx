@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import BrowseField from '../common/BrowseField';
 import ResultPanel from '../common/ResultPanel';
+import { api } from '../../services/api';
+import { useFileBrowser } from '../../hooks/useFileBrowser';
 
 function SyncBalancesView() {
   const [cardsSummaryPath, setCardsSummaryPath] = useState('');
@@ -8,48 +10,24 @@ function SyncBalancesView() {
   const [serviceChargePercent, setServiceChargePercent] = useState('5');
 
   const [loading, setLoading] = useState(false);
-  const [browseCardsLoading, setBrowseCardsLoading] = useState(false);
-  const [browseTbmLoading, setBrowseTbmLoading] = useState(false);
-  
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const handleBrowseCardsFile = async () => {
-    setBrowseCardsLoading(true);
+  const cardsBrowser = useFileBrowser();
+  const tbmBrowser = useFileBrowser();
+
+  const handleBrowseCardsFile = () => {
     setErrorMsg(null);
-    try {
-      const res = await fetch('/api/browse-file', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success && data.filePath) {
-        setCardsSummaryPath(data.filePath);
-      } else if (data.message) {
-        setErrorMsg(data.message);
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to open file browser dialog.');
-    } finally {
-      setBrowseCardsLoading(false);
-    }
+    cardsBrowser.browseFile((filePath) => {
+      setCardsSummaryPath(filePath);
+    });
   };
 
-  const handleBrowseTbmFile = async () => {
-    setBrowseTbmLoading(true);
+  const handleBrowseTbmFile = () => {
     setErrorMsg(null);
-    try {
-      const res = await fetch('/api/browse-file', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success && data.filePath) {
-        setTbmSummaryPath(data.filePath);
-      } else if (data.message) {
-        setErrorMsg(data.message);
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to open file browser dialog.');
-    } finally {
-      setBrowseTbmLoading(false);
-    }
+    tbmBrowser.browseFile((filePath) => {
+      setTbmSummaryPath(filePath);
+    });
   };
 
   const handleSyncBalances = async (e) => {
@@ -68,29 +46,21 @@ function SyncBalancesView() {
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/sync-tbm-cards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cardsExcelPath: cardsSummaryPath.trim(),
-          tbmSummaryPath: tbmSummaryPath.trim(),
-          serviceChargePercent: parseFloat(serviceChargePercent) || 5.0
-        }),
+      const data = await api.syncTbmCards({
+        cardsExcelPath: cardsSummaryPath.trim(),
+        tbmSummaryPath: tbmSummaryPath.trim(),
+        serviceChargePercent: parseFloat(serviceChargePercent) || 5.0,
       });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setResult(data);
-      } else {
-        setErrorMsg(data.message || 'Failed to synchronize PO Cards summary.');
-      }
+      setResult(data);
     } catch (err) {
       console.error(err);
-      setErrorMsg('Network error: Failed to contact the backend server.');
+      setErrorMsg(err.message || 'Failed to synchronize PO Cards summary.');
     } finally {
       setLoading(false);
     }
   };
+
+  const activeError = errorMsg || cardsBrowser.error || tbmBrowser.error;
 
   return (
     <div className="view-container">
@@ -110,22 +80,22 @@ function SyncBalancesView() {
           </p>
 
           <form onSubmit={handleSyncBalances} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <BrowseField 
+            <BrowseField
               label="1. PO Cards Summary Excel File (e.g. Nandyala FMC Budget.xlsx)"
               value={cardsSummaryPath}
               onChange={(e) => setCardsSummaryPath(e.target.value)}
               onBrowse={handleBrowseCardsFile}
-              browseLoading={browseCardsLoading}
+              browseLoading={cardsBrowser.loading}
               disabled={loading}
               placeholder="Select PO Summary workbook with cards (e.g. Nandyala FMC Budget.xlsx)..."
             />
 
-            <BrowseField 
+            <BrowseField
               label="2. Consolidated Master TBM Summary Excel File (e.g. NANDYALA-All-TBMs-Summary.xlsx)"
               value={tbmSummaryPath}
               onChange={(e) => setTbmSummaryPath(e.target.value)}
               onBrowse={handleBrowseTbmFile}
-              browseLoading={browseTbmLoading}
+              browseLoading={tbmBrowser.loading}
               disabled={loading}
               placeholder="Select Consolidated Master TBM Summary with TBM Amount Summary sheet..."
             />
@@ -160,15 +130,17 @@ function SyncBalancesView() {
             </div>
 
             {/* Info Box */}
-            <div style={{
-              background: 'var(--bg-hover)',
-              border: '1px solid var(--border-color)',
-              padding: '0.9rem 1rem',
-              borderRadius: '8px',
-              fontSize: '0.82rem',
-              color: 'var(--text-muted)',
-              lineHeight: '1.5'
-            }}>
+            <div
+              style={{
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border-color)',
+                padding: '0.9rem 1rem',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)',
+                lineHeight: '1.5',
+              }}
+            >
               <strong>📌 Automatic Operations Performed:</strong>
               <ul style={{ margin: '0.4rem 0 0 1.1rem', padding: 0 }}>
                 <li>Populates card data rows with TBM spent amounts under matching activity columns.</li>
@@ -193,16 +165,18 @@ function SyncBalancesView() {
         {/* Results Panel Card */}
         <div className="card">
           <h2>Execution Status</h2>
-          
-          {errorMsg && (
+
+          {activeError && (
             <div className="toast error" style={{ width: '100%', marginBottom: '1.5rem' }}>
-              ⚠️ {errorMsg}
+              ⚠️ {activeError}
             </div>
           )}
 
           {loading ? (
             <div style={{ textAlign: 'center', color: 'var(--primary-color)', padding: '4rem 1rem' }}>
-              <div className="spinner" style={{ fontSize: '3rem', display: 'inline-block', marginBottom: '1rem' }}>⏳</div>
+              <div className="spinner" style={{ fontSize: '3rem', display: 'inline-block', marginBottom: '1rem' }}>
+                ⏳
+              </div>
               <h3>Synchronizing PO Cards &amp; Balances...</h3>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                 Reading TBM expended details, injecting card data rows, and applying formulas for Service Charges ({serviceChargePercent}%), Total IV, and Balances.
@@ -210,7 +184,15 @@ function SyncBalancesView() {
             </div>
           ) : result ? (
             <div>
-              <div style={{ backgroundColor: 'rgba(39, 174, 96, 0.15)', border: '1px solid #27ae60', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+              <div
+                style={{
+                  backgroundColor: 'rgba(39, 174, 96, 0.15)',
+                  border: '1px solid #27ae60',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                }}
+              >
                 <h4 style={{ color: '#27ae60', margin: 0 }}>✓ Synchronization Complete</h4>
                 <p style={{ fontSize: '0.88rem', marginTop: '0.4rem', color: 'var(--text-color)' }}>
                   {result.message}
