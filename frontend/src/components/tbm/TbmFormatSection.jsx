@@ -4,6 +4,8 @@ function TbmFormatSection({
   tbmFolderPath,
   isLoading,
   loadingStep1,
+  forceReformat,
+  setForceReformat,
   onFormatSheets
 }) {
   return (
@@ -37,9 +39,24 @@ function TbmFormatSection({
       </div>
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
         Reads raw summaries from Sheet 1, groups by (PO, Product, Activity), formats dates into{' '}
-        <code>DD-MM-YYYY</code>, adds Excel formulas, each PO total, and writes styled tables to{' '}
-        <strong>Sheet 2</strong> without touching Sheet 1.
+        <code>DD-MM-YYYY</code>, adds Excel formulas, writes styled tables to{' '}
+        <strong>Sheet 2</strong>, and marks Column R as <strong>DONE</strong>. Already formatted files are automatically skipped.
       </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem' }}>
+        <input
+          type="checkbox"
+          id="forceReformat"
+          checked={forceReformat}
+          onChange={(e) => setForceReformat(e.target.checked)}
+          disabled={isLoading}
+          style={{ cursor: 'pointer' }}
+        />
+        <label htmlFor="forceReformat" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+          Force re-format (overwrite files already marked as DONE)
+        </label>
+      </div>
+
       <button
         type="button"
         className="secondary"

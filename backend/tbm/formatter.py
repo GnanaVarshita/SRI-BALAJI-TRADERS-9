@@ -248,11 +248,93 @@ def write_po_and_grand_totals_block(ws, start_row, po_totals, styles):
     return current_r + 2
 
 
-def format_tbm_workbook(file_path, default_tbm_name="", default_territory=""):
+def is_workbook_already_formatted(wb):
+    """
+    Checks if a workbook has already been formatted by Step 1 purely based on
+    the presence of the 'DONE' status marker in Sheet 1 (Column R / Status column).
+    If the user removes or clears 'DONE' from Sheet 1, the workbook is considered
+    NOT formatted and will be processed.
+    """
+    if not wb.sheetnames:
+        return False
+
+    ws_raw = wb[wb.sheetnames[0]]
+    max_r = min(ws_raw.max_row or 20, 100)
+    max_c = min(ws_raw.max_column or 25, 45)
+
+    # Search for "DONE" in Column R (Col 18) or any column from Col 16 onwards
+    for r in range(1, max_r + 1):
+        for c in range(16, max_c + 1):
+            val = str(ws_raw.cell(r, c).value or "").strip().upper()
+            if val == "DONE":
+                return True
+
+    return False
+
+
+def mark_sheet1_as_done(ws_raw, styles):
+    """
+    Marks Sheet 1 as formatted by writing 'Status' in the header row at Column R (Col 18)
+    and 'DONE' in each data row of the table.
+    """
+    thin_border = styles['thin_border']
+    status_hdr_font = Font(name='Calibri', size=10, bold=True, color='006100')
+    status_val_font = Font(name='Calibri', size=10, bold=True, color='006100')
+    center_align = Alignment(horizontal='center', vertical='center')
+
+    max_r = ws_raw.max_row or 50
+    max_c = min(ws_raw.max_column or 25, 30)
+
+    # Find table header rows
+    header_rows = []
+    for r in range(1, min(max_r, 20)):
+        row_vals = [str(ws_raw.cell(r, c).value or "").strip().lower() for c in range(1, max_c + 1)]
+        row_str = " ".join(row_vals)
+        if "activities expenses" in row_str and not any(k in row_str for k in ["sl.no", "sl no", "date", "product"]):
+            continue
+        if any(k in row_str for k in ["sl.no", "sl no", "s.no", "sno"]) or (
+            any(k in row_str for k in ["farmer", "activity"]) and any(k in row_str for k in ["date", "product"])
+        ):
+            header_rows.append(r)
+
+    if not header_rows:
+        header_rows = [2]
+
+    # Column R is column 18
+    c_status = 18
+    col_letter = openpyxl.utils.get_column_letter(c_status)
+    ws_raw.column_dimensions[col_letter].width = 12
+
+    for i, hr in enumerate(header_rows):
+        next_hr = header_rows[i + 1] if i + 1 < len(header_rows) else max_r + 1
+
+        # Header cell in Column R
+        hdr_cell = ws_raw.cell(hr, c_status, "Status")
+        hdr_cell.font = status_hdr_font
+        hdr_cell.alignment = center_align
+        hdr_cell.border = thin_border
+
+        # Mark all data rows up to Total row or next header
+        for r in range(hr + 1, next_hr):
+            row_vals = [ws_raw.cell(r, c).value for c in range(1, c_status)]
+            if not any(row_vals):
+                continue
+            row_str = " ".join(str(v).lower() for v in row_vals if v is not None)
+            if "total" in row_str and not any(str(ws_raw.cell(r, c).value or "").strip() for c in [2, 7, 8, 9, 10]):
+                break
+
+            val_cell = ws_raw.cell(r, c_status, "DONE")
+            val_cell.font = status_val_font
+            val_cell.alignment = center_align
+            val_cell.border = thin_border
+
+
+def format_tbm_workbook(file_path, default_tbm_name="", default_territory="", force=False):
     """
     Reads Sheet 1 (original raw table), extracts activity records,
     groups them by (PO, Product, Activity), formats them on Sheet 2, and appends
-    a PO Totals + Grand Total summary block.
+    a PO Totals + Grand Total summary block. Marks Sheet 1 Column R as DONE.
+    Skips if already formatted unless force=True.
     """
     file_path = Path(file_path).resolve()
     if not file_path.exists():
@@ -268,6 +350,20 @@ def format_tbm_workbook(file_path, default_tbm_name="", default_territory=""):
                 break
 
     wb = openpyxl.load_workbook(file_path)
+
+    # Check if already formatted
+    if not force and is_workbook_already_formatted(wb):
+        wb.close()
+        return {
+            "success": True,
+            "alreadyFormatted": True,
+            "skipped": True,
+            "message": f"Skipped {file_path.name} (already formatted and marked as DONE)",
+            "file": file_path.name,
+            "filePath": str(file_path),
+            "groupsCount": 0,
+            "activitiesCount": 0
+        }
 
     first_sheet_name = wb.sheetnames[0]
     ws_raw = wb[first_sheet_name]
@@ -321,12 +417,24 @@ def format_tbm_workbook(file_path, default_tbm_name="", default_territory=""):
 
     write_po_and_grand_totals_block(ws_target, current_r, po_totals, styles)
 
-    wb.save(file_path)
+    # Mark Sheet 1 as DONE in Column R
+    mark_sheet1_as_done(ws_raw, styles)
+
+    try:
+        wb.save(file_path)
+    except PermissionError:
+        wb.close()
+        raise PermissionError(
+            f"Cannot save '{file_path.name}' because it is open in Microsoft Excel or another application. "
+            f"Please close the file in Excel and try again."
+        )
     wb.close()
 
     return {
         "success": True,
-        "message": f"Formatted {len(activities)} activities across {len(groups)} table(s) on second sheet of {file_path.name}",
+        "alreadyFormatted": False,
+        "skipped": False,
+        "message": f"Formatted {len(activities)} activities across {len(groups)} table(s) and marked as DONE on {file_path.name}",
         "file": file_path.name,
         "filePath": str(file_path),
         "groupsCount": len(groups),
@@ -335,7 +443,7 @@ def format_tbm_workbook(file_path, default_tbm_name="", default_territory=""):
     }
 
 
-def format_all_tbm_summaries_in_folder(tbm_folder_path):
+def format_all_tbm_summaries_in_folder(tbm_folder_path, force=False):
     """Batch formats all TBM Excel summaries in a folder (and its TBM subfolders)."""
     tbm_dir = Path(tbm_folder_path).resolve()
     if not tbm_dir.exists() or not tbm_dir.is_dir():
@@ -354,6 +462,7 @@ def format_all_tbm_summaries_in_folder(tbm_folder_path):
             "success": False,
             "message": f"No Excel files found in {tbm_dir.name}",
             "processedFiles": 0,
+            "skippedFiles": 0,
             "totalActivities": 0,
             "details": []
         }
@@ -362,16 +471,25 @@ def format_all_tbm_summaries_in_folder(tbm_folder_path):
     total_acts = 0
     total_groups = 0
     success_count = 0
+    skipped_count = 0
 
     for ef in excel_files:
         tbm_folder_name = ef.parent.name if ef.parent != tbm_dir else ""
         try:
-            res = format_tbm_workbook(ef, default_tbm_name=tbm_folder_name)
+            res = format_tbm_workbook(ef, default_tbm_name=tbm_folder_name, force=force)
             results.append(res)
-            if res.get("success"):
+            if res.get("skipped"):
+                skipped_count += 1
+            elif res.get("success"):
                 success_count += 1
                 total_acts += res.get("activitiesCount", 0)
                 total_groups += res.get("groupsCount", 0)
+        except PermissionError as pe:
+            results.append({
+                "success": False,
+                "file": ef.name,
+                "message": str(pe)
+            })
         except Exception as e:
             results.append({
                 "success": False,
@@ -379,10 +497,26 @@ def format_all_tbm_summaries_in_folder(tbm_folder_path):
                 "message": f"Error formatting {ef.name}: {e}"
             })
 
+    if success_count == 0 and skipped_count > 0:
+        summary_msg = f"All {skipped_count} TBM summary file(s) are already formatted and marked as DONE."
+    elif success_count > 0 and skipped_count > 0:
+        summary_msg = (
+            f"Successfully formatted {success_count} file(s) ({total_acts} activities in {total_groups} tables); "
+            f"{skipped_count} file(s) were already marked as DONE (skipped)."
+        )
+    elif success_count > 0 and skipped_count == 0:
+        summary_msg = (
+            f"Successfully formatted {success_count} / {len(excel_files)} TBM summary file(s) "
+            f"({total_acts} activities in {total_groups} tables) and marked them as DONE!"
+        )
+    else:
+        summary_msg = f"Processed {len(excel_files)} file(s), but none could be formatted."
+
     return {
-        "success": True,
-        "message": f"Successfully formatted {success_count} / {len(excel_files)} TBM summary file(s) ({total_acts} activities in {total_groups} tables) into their second sheets!",
+        "success": (success_count + skipped_count) > 0,
+        "message": summary_msg,
         "processedFiles": success_count,
+        "skippedFiles": skipped_count,
         "totalFiles": len(excel_files),
         "totalActivities": total_acts,
         "totalTables": total_groups,

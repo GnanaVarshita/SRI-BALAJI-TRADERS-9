@@ -63,6 +63,11 @@ function TbmStatusPanel({
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Files Processed</span>
               <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
                 {step1Result.processedFiles} / {step1Result.totalFiles}
+                {step1Result.skippedFiles > 0 && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '0.4rem' }}>
+                    ({step1Result.skippedFiles} skipped)
+                  </span>
+                )}
               </div>
             </div>
             <div style={{ background: 'var(--bg-hover)', padding: '0.65rem', borderRadius: '6px' }}>
@@ -96,8 +101,12 @@ function TbmStatusPanel({
               fontSize: '0.78rem',
             }}>
               {step1Result.details.map((d, idx) => (
-                <div key={idx} style={{ padding: '0.25rem 0', borderBottom: idx < step1Result.details.length - 1 ? '1px solid var(--border-color)' : 'none', color: d.success ? 'var(--text-color)' : '#e74c3c' }}>
-                  {d.success ? '✓' : '⚠️'} <strong>{d.file}</strong>: {d.message}
+                <div key={idx} style={{
+                  padding: '0.25rem 0',
+                  borderBottom: idx < step1Result.details.length - 1 ? '1px solid var(--border-color)' : 'none',
+                  color: d.skipped ? 'var(--text-muted)' : (d.success ? 'var(--text-color)' : '#e74c3c')
+                }}>
+                  {d.skipped ? '⏭️' : (d.success ? '✓' : '⚠️')} <strong>{d.file}</strong>: {d.message}
                 </div>
               ))}
             </div>

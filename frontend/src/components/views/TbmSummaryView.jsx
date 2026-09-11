@@ -10,6 +10,8 @@ function TbmSummaryView() {
   const [tbmFolderPath, setTbmFolderPath] = useState('');
   const [outputPath, setOutputPath] = useState('');
   const [priorityPoList, setPriorityPoList] = useState('');
+  const [forceReformat, setForceReformat] = useState(false);
+  const [forceConsolidate, setForceConsolidate] = useState(false);
 
   const [loadingStep1, setLoadingStep1] = useState(false);
   const [loadingStep2, setLoadingStep2] = useState(false);
@@ -18,6 +20,7 @@ function TbmSummaryView() {
   const [errorMsg, setErrorMsg] = useState(null);
 
   const folderBrowser = useFileBrowser();
+  const fileBrowser = useFileBrowser();
 
   const handleBrowseTbmFolder = () => {
     setErrorMsg(null);
@@ -34,6 +37,13 @@ function TbmSummaryView() {
     });
   };
 
+  const handleBrowseOutputFile = () => {
+    setErrorMsg(null);
+    fileBrowser.browseFile((filePath) => {
+      setOutputPath(filePath);
+    });
+  };
+
   const handleFormatSheets = async () => {
     if (!tbmFolderPath) {
       setErrorMsg('Please select the TBM s Summary folder path first.');
@@ -47,6 +57,7 @@ function TbmSummaryView() {
     try {
       const data = await api.formatTbmSummaries({
         tbmFolderPath: tbmFolderPath.trim(),
+        force: forceReformat,
       });
       setStep1Result(data);
     } catch (err) {
@@ -70,9 +81,10 @@ function TbmSummaryView() {
 
     try {
       const data = await api.generateTbmSummary({
-        tbmFolderPath,
+        tbmFolderPath: tbmFolderPath.trim(),
         outputPath: outputPath.trim(),
         priorityPoList: priorityPoList.trim(),
+        force: forceConsolidate,
       });
       setStep2Result(data);
     } catch (err) {
@@ -84,7 +96,7 @@ function TbmSummaryView() {
   };
 
   const isLoading = loadingStep1 || loadingStep2;
-  const activeError = errorMsg || folderBrowser.error;
+  const activeError = errorMsg || folderBrowser.error || fileBrowser.error;
 
   return (
     <div className="view-container">
@@ -118,6 +130,8 @@ function TbmSummaryView() {
               tbmFolderPath={tbmFolderPath}
               isLoading={isLoading}
               loadingStep1={loadingStep1}
+              forceReformat={forceReformat}
+              setForceReformat={setForceReformat}
               onFormatSheets={handleFormatSheets}
             />
 
@@ -125,8 +139,12 @@ function TbmSummaryView() {
               tbmFolderPath={tbmFolderPath}
               outputPath={outputPath}
               setOutputPath={setOutputPath}
+              onBrowseOutputFile={handleBrowseOutputFile}
+              browseFileLoading={fileBrowser.loading}
               priorityPoList={priorityPoList}
               setPriorityPoList={setPriorityPoList}
+              forceConsolidate={forceConsolidate}
+              setForceConsolidate={setForceConsolidate}
               isLoading={isLoading}
               loadingStep2={loadingStep2}
               onConsolidate={handleConsolidate}

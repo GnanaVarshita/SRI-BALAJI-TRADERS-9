@@ -238,6 +238,7 @@ def handle_format_tbm_summaries(data):
     """Handles POST /api/format-tbm-summaries."""
     try:
         folder_or_file_str = data.get("path", "").strip() or data.get("tbmFolderPath", "").strip()
+        force = bool(data.get("force", False))
         if not folder_or_file_str:
             return 400, {"success": False, "message": "TBM folder or file path is required"}
 
@@ -246,9 +247,9 @@ def handle_format_tbm_summaries(data):
             return 400, {"success": False, "message": f"Path does not exist at: {folder_or_file_str}"}
 
         if target_path.is_file():
-            res = tbm_formatter.format_tbm_workbook(target_path)
+            res = tbm_formatter.format_tbm_workbook(target_path, force=force)
         else:
-            res = tbm_formatter.format_all_tbm_summaries_in_folder(target_path)
+            res = tbm_formatter.format_all_tbm_summaries_in_folder(target_path, force=force)
 
         status_code = 200 if res.get("success") else 400
         return status_code, res
@@ -270,10 +271,13 @@ def handle_generate_tbm_summary(data):
         if not input_folder.exists() or not input_folder.is_dir():
             return 400, {"success": False, "message": f"TBM Summary folder does not exist at: {input_folder_str}"}
 
+        force = bool(data.get("force", False))
+
         res = tbm_summary_generator.generate_tbm_summary(
             tbm_folder_path=input_folder,
             output_path=output_path_str if output_path_str else None,
-            priority_po_list=priority_po_list
+            priority_po_list=priority_po_list,
+            force=force
         )
         status_code = 200 if res.get("success") else 400
         return status_code, res

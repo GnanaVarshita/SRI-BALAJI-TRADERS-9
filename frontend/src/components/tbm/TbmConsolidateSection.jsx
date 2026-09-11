@@ -1,11 +1,16 @@
 import React from 'react';
+import BrowseField from '../common/BrowseField';
 
 function TbmConsolidateSection({
   tbmFolderPath,
   outputPath,
   setOutputPath,
+  onBrowseOutputFile,
+  browseFileLoading,
   priorityPoList,
   setPriorityPoList,
+  forceConsolidate,
+  setForceConsolidate,
   isLoading,
   loadingStep2,
   onConsolidate
@@ -40,30 +45,15 @@ function TbmConsolidateSection({
         </span>
       </div>
 
-      <div className="form-field">
-        <label className="form-label" style={{ fontSize: '0.85rem' }}>
-          Target Output Master Excel File Path
-        </label>
-        <textarea
-          rows={1}
-          className="path-input-textarea"
-          value={outputPath}
-          onChange={(e) => setOutputPath(e.target.value)}
-          placeholder="Defaults to [Territory]-All-TBMs-Summary.xlsx inside TBM Summary Folder"
-          disabled={isLoading}
-          style={{
-            minHeight: '38px',
-            resize: 'vertical',
-            wordBreak: 'break-all',
-            overflowWrap: 'anywhere',
-            whiteSpace: 'pre-wrap',
-            fontFamily: 'Consolas, "Courier New", monospace, sans-serif',
-            fontSize: '0.82rem',
-            lineHeight: '1.4',
-            padding: '0.55rem 0.65rem',
-          }}
-        />
-      </div>
+      <BrowseField
+        label="Target Output Master Excel File Path"
+        value={outputPath}
+        onChange={(e) => setOutputPath(e.target.value)}
+        onBrowse={onBrowseOutputFile}
+        browseLoading={browseFileLoading}
+        disabled={isLoading}
+        placeholder="Defaults to [Territory]-All-TBMs-Summary.xlsx inside TBM Summary Folder"
+      />
 
       <div className="form-field">
         <label className="form-label" style={{ fontSize: '0.85rem' }}>
@@ -77,6 +67,23 @@ function TbmConsolidateSection({
           placeholder="Enter priority PO numbers (e.g. 500BB20260710377, 500BB20260710177). Unlisted POs go to Unlisted POs sheet."
           disabled={isLoading}
         />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '-0.2rem' }}>
+        <input
+          type="checkbox"
+          id="forceConsolidateCheck"
+          checked={forceConsolidate}
+          onChange={(e) => setForceConsolidate(e.target.checked)}
+          disabled={isLoading}
+          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+        />
+        <label
+          htmlFor="forceConsolidateCheck"
+          style={{ fontSize: '0.82rem', color: 'var(--text-color)', cursor: 'pointer', userSelect: 'none' }}
+        >
+          Force re-consolidate (include tables already marked as DONE in Sheet 2)
+        </label>
       </div>
 
       <button

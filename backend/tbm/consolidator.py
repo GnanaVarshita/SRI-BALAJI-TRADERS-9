@@ -60,6 +60,40 @@ def create_table_styles():
     }
 
 
+def mark_sheet2_tables_as_done(ws, tables_info):
+    """
+    Marks the consolidated tables in Sheet 2 as DONE in Column R (Col 18).
+    tables_info is a dict or iterable of (hr, data_rows).
+    Header row receives 'Status', each data row receives 'DONE'.
+    """
+    thin_border = Border(
+        left=Side(style='thin', color='A6A6A6'),
+        right=Side(style='thin', color='A6A6A6'),
+        top=Side(style='thin', color='A6A6A6'),
+        bottom=Side(style='thin', color='A6A6A6')
+    )
+    status_hdr_font = Font(name='Calibri', size=10, bold=True, color='006100')
+    status_val_font = Font(name='Calibri', size=10, bold=True, color='006100')
+    center_align = Alignment(horizontal='center', vertical='center')
+
+    c_status = 18
+    col_letter = openpyxl.utils.get_column_letter(c_status)
+    ws.column_dimensions[col_letter].width = 12
+
+    items = tables_info.items() if isinstance(tables_info, dict) else tables_info
+    for hr, data_rows in items:
+        hdr_cell = ws.cell(hr, c_status, "Status")
+        hdr_cell.font = status_hdr_font
+        hdr_cell.alignment = center_align
+        hdr_cell.border = thin_border
+
+        for r in data_rows:
+            val_cell = ws.cell(r, c_status, "DONE")
+            val_cell.font = status_val_font
+            val_cell.alignment = center_align
+            val_cell.border = thin_border
+
+
 def write_table_to_sheet(ws, start_row, tbm_name, territory, rows_data, po_number, styles):
     """
     Writes a single formatted TBM activity table to worksheet at start_row matching screenshot layout.
@@ -297,29 +331,35 @@ def create_tbm_amount_summary_sheet(wb, all_extracted_rows, styles):
     c_amt_tot.number_format = '#,##0'
 
 
-def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=None):
+def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=None, force=False):
     """
     Main function to scan TBM summary folder, parse activities (supporting .xlsx and legacy .xls files),
     group by PO, Activity, TBM, format into max 9 tables per sheet, with Activity Subtotals and PO Grand Totals.
+    Skips tables already marked as DONE in Sheet 2 unless force=True.
+    Marks consolidated tables in Sheet 2 as DONE after Master Summary is saved.
     """
     tbm_dir = Path(tbm_folder_path).resolve()
     if not tbm_dir.exists() or not tbm_dir.is_dir():
         raise ValueError(f"TBM Summary folder path does not exist: {tbm_folder_path}")
 
-    if not output_path:
-        territory_name = "Nandyala"
-        for p in tbm_dir.parts:
-            p_up = p.upper()
-            if any(k in p_up for k in ['KURNOOL', 'NELLORE', 'NANDYAL', 'NANDYALA', 'SURYAPET']):
-                territory_name = p.title()
-                break
-        if territory_name == "Nandyala" and tbm_dir.name and tbm_dir.name != "TBM s Summary":
-            territory_name = tbm_dir.name.replace(" ", "-")
+    territory_name = "All-TBMs"
+    for p in tbm_dir.parts:
+        p_up = p.upper()
+        if any(k in p_up for k in ['KURNOOL', 'NELLORE', 'NANDYAL', 'NANDYALA', 'SURYAPET']):
+            territory_name = p.replace("-FMC", "").replace(" POs", "").title()
+            break
+    if territory_name == "All-TBMs" and tbm_dir.name and tbm_dir.name != "TBM s Summary":
+        territory_name = tbm_dir.name.replace(" ", "-")
 
+    if not output_path:
         output_filename = f"{territory_name}-All-TBMs-Summary.xlsx"
         output_path = tbm_dir / output_filename
     else:
         output_path = Path(output_path).resolve()
+        if output_path.is_dir():
+            output_path = output_path / f"{territory_name}-All-TBMs-Summary.xlsx"
+        elif not output_path.suffix.lower().endswith('.xlsx'):
+            output_path = output_path.with_suffix('.xlsx')
 
     priority_pos = set()
     if priority_po_list:
@@ -333,6 +373,10 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
                 priority_pos.add(cleaned)
 
     all_extracted_rows = []
+    files_to_mark = []
+    skipped_files_count = 0
+    total_files_scanned = 0
+
     tbm_subfolders = [d for d in tbm_dir.iterdir() if d.is_dir()]
     if not tbm_subfolders:
         tbm_subfolders = [tbm_dir]
@@ -351,25 +395,48 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
                 continue
 
             suf = ef.suffix.lower()
+            total_files_scanned += 1
 
             if suf in ['.xlsx', '.xlsm']:
                 try:
-                    wb_in = openpyxl.load_workbook(ef, data_only=True)
-                    target_sheets = []
-                    if len(wb_in.sheetnames) >= 2:
-                        target_sheets = [wb_in.sheetnames[1], wb_in.sheetnames[0]]
+                    wb_in = openpyxl.load_workbook(ef, data_only=False)
+                    # Prefer Sheet2 (the formatted grouped sheet from Step 1)
+                    target_sname = None
+                    if len(wb_in.sheetnames) >= 2 and (wb_in.sheetnames[1] == "Sheet2" or "sheet2" in wb_in.sheetnames[1].lower()):
+                        target_sname = wb_in.sheetnames[1]
+                    elif "Sheet2" in wb_in.sheetnames:
+                        target_sname = "Sheet2"
                     else:
-                        target_sheets = wb_in.sheetnames
+                        target_sname = wb_in.sheetnames[0]
 
-                    extracted_for_file = []
-                    for sname in target_sheets:
-                        ws_in = wb_in[sname]
-                        sheet_activities = extract_activities_from_sheet(ws_in, tbm_name, file_name=ef.name)
-                        if sheet_activities:
-                            extracted_for_file = sheet_activities
-                            break
-                    
-                    all_extracted_rows.extend(extracted_for_file)
+                    ws_in = wb_in[target_sname]
+                    sheet_activities = extract_activities_from_sheet(
+                        ws_in, tbm_name, file_name=ef.name, skip_done=not force
+                    )
+
+                    if sheet_activities:
+                        all_extracted_rows.extend(sheet_activities)
+                        # Group extracted rows by table header index (_hr_idx)
+                        tbl_groups = {}
+                        for act in sheet_activities:
+                            hr = act.get('_hr_idx')
+                            r = act.get('_row_idx')
+                            if hr and r:
+                                if hr not in tbl_groups:
+                                    tbl_groups[hr] = []
+                                tbl_groups[hr].append(r)
+
+                        files_to_mark.append({
+                            'file_path': ef,
+                            'sheet_name': target_sname,
+                            'tables_info': tbl_groups
+                        })
+                    else:
+                        # Check if file was skipped because all its tables were already marked as DONE
+                        raw_acts = extract_activities_from_sheet(ws_in, tbm_name, file_name=ef.name, skip_done=False)
+                        if raw_acts:
+                            skipped_files_count += 1
+
                     wb_in.close()
                 except Exception as e:
                     print(f"Error reading {suf} file {ef.name}: {e}")
@@ -430,6 +497,20 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
                         pass
 
     if not all_extracted_rows:
+        if skipped_files_count > 0:
+            return {
+                "success": True,
+                "alreadyConsolidated": True,
+                "message": f"All {skipped_files_count} TBM summary file(s) are already marked as DONE in Sheet 2. Nothing new to consolidate into {output_path.name}.",
+                "outputPath": str(output_path),
+                "totalActivities": 0,
+                "totalTables": 0,
+                "priorityTables": 0,
+                "unlistedTables": 0,
+                "noPoTables": 0,
+                "sheetsCount": 0,
+                "skippedFilesCount": skipped_files_count
+            }
         return {
             "success": False,
             "message": f"No activity records found in Excel files inside {tbm_dir.name}",
@@ -516,16 +597,25 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
                     if any(s.cell(r, c).value for c in range(1, 18)):
                         max_used = r
                         break
-                return s, max_used + 4
+                existing_tbls = 0
+                for r in range(1, max_used + 1):
+                    v = str(s.cell(r, 1).value or "").strip()
+                    if v.startswith("MARKETING ACTIVITIES EXPENSES-") or v == "SI No":
+                        if v == "SI No":
+                            existing_tbls += 1
+                return s, max_used + 4, existing_tbls
             else:
                 s = wb.create_sheet(title=name)
                 s.views.sheetView[0].showGridLines = True
                 col_w = {'A': 6, 'B': 12, 'C': 16, 'D': 16, 'E': 14, 'F': 14, 'G': 14, 'H': 12, 'I': 12, 'J': 14, 'K': 12, 'L': 15, 'M': 14, 'N': 12, 'O': 12, 'P': 14, 'Q': 18}
                 for c_letter, w in col_w.items():
                     s.column_dimensions[c_letter].width = w
-                return s, 1
+                return s, 1, 0
 
-        ws, current_row = get_or_create_sheet(curr_sheet_idx)
+        ws, current_row, tables_on_current_sheet = get_or_create_sheet(curr_sheet_idx)
+        if tables_on_current_sheet >= 9:
+            curr_sheet_idx += 1
+            ws, current_row, tables_on_current_sheet = get_or_create_sheet(curr_sheet_idx)
 
         for po_num, acts_dict in po_dict.items():
             display_po = po_num if po_num != "NO_PO" else ""
@@ -536,8 +626,7 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
                 for (prod, tbm), act_rows in tbm_groups.items():
                     if tables_on_current_sheet >= 9:
                         curr_sheet_idx += 1
-                        ws, current_row = get_or_create_sheet(curr_sheet_idx)
-                        tables_on_current_sheet = 0
+                        ws, current_row, tables_on_current_sheet = get_or_create_sheet(curr_sheet_idx)
                         act_table_rows_on_sheet = []
                         po_subtotal_rows_on_sheet = []
 
@@ -602,18 +691,53 @@ def generate_tbm_summary(tbm_folder_path, output_path=None, priority_po_list=Non
     create_tbm_amount_summary_sheet(wb, all_extracted_rows, styles)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(output_path)
+    try:
+        wb.save(output_path)
+    except PermissionError:
+        wb.close()
+        raise PermissionError(
+            f"Cannot save Master Summary to '{output_path.name}' because it is open in Microsoft Excel. "
+            f"Please close the file in Excel and try again."
+        )
     wb.close()
 
+    # Mark consolidated tables in Sheet 2 as DONE in source files
+    marked_files_count = 0
+    mark_errors = []
+    for item in files_to_mark:
+        src_f = item['file_path']
+        sname = item['sheet_name']
+        tbls = item['tables_info']
+        try:
+            wb_src = openpyxl.load_workbook(src_f)
+            if sname in wb_src.sheetnames:
+                ws_src = wb_src[sname]
+                mark_sheet2_tables_as_done(ws_src, tbls)
+                wb_src.save(src_f)
+                marked_files_count += 1
+            wb_src.close()
+        except PermissionError:
+            mark_errors.append(f"Could not mark {src_f.name} as DONE because it is open in Excel.")
+        except Exception as ex:
+            mark_errors.append(f"Error marking {src_f.name}: {ex}")
+
     total_tables = n_pri_tbls + n_unl_tbls + n_nopo_tbls
+    msg = f"Successfully consolidated {len(all_extracted_rows)} activity records across {total_tables} table(s) into {output_path.name} and marked Sheet 2 as DONE in {marked_files_count} file(s)!"
+    if skipped_files_count > 0:
+        msg += f" ({skipped_files_count} file(s) already marked as DONE were skipped)"
+    if mark_errors:
+        msg += f" Note: {'; '.join(mark_errors)}"
+
     return {
         "success": True,
-        "message": f"Successfully consolidated {len(all_extracted_rows)} activity records across {total_tables} table(s) with Activity Subtotals, PO Grand Totals, and TBM Amount Summary sheet in {output_path.name}!",
+        "message": msg,
         "outputPath": str(output_path),
         "totalActivities": len(all_extracted_rows),
         "totalTables": total_tables,
         "priorityTables": n_pri_tbls,
         "unlistedTables": n_unl_tbls,
         "noPoTables": n_nopo_tbls,
-        "sheetsCount": len(wb.sheetnames)
+        "sheetsCount": len(wb.sheetnames),
+        "markedFilesCount": marked_files_count,
+        "skippedFilesCount": skipped_files_count
     }

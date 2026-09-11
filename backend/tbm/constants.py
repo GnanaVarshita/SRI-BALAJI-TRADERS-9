@@ -4,23 +4,73 @@ Sri Balaji Traders Automation System
 """
 
 FIELD_KEYWORDS = {
-    'sl_no': ['sl no', 'sl.no', 's no', 's.no', 'sno', 'si no', 'si.no', 's. no', 'sl. no', 'slno'],
-    'date': ['date'],
-    'zdgm': ['zdgm', 'zdgl', 'area manager', 'adgl', 'adg', 'dm', 'zdsm', 'manager', 'rbm', 'am', 'area manager/am', 'area manager / am'],
-    'tbm': ['tbm name', 'tbm', 'name of the tbm', 'tbm/sc/so', 'sc/so', 'tbm / sc / so', 'mie', 'mie name'],
-    'mdo': ['mdo name', 'mdo', 'mdo/fa', 'fa'],
-    'territory': ['territory', 'tbm territory', 'area', 'place', 'location'],
-    'product': ['product', 'item', 'brand', 'product name'],
-    'crop': ['crop', 'crops'],
-    'activity': ['type of activity', 'activity name', 'activity', 'activities'],
-    'village': ['village name', 'village', 'villages', 'town'],
-    'farmers': ['no.of farmers', 'no of farmers', 'no. of farmers', 'n0 of farmers', 'no of rarmers', 'farmers attended', 'farmers', 'no of farmer', 'no.of farmer'],
-    'tent': ['tent/hall /chairs expenses', 'tent/hall/chairs', 'tent/hall suppliers charges', 'tent/ hall', 'tent', 'chairs', 'chairs/ table/tent', 'suppliers/charges', 'suppliers charges', 'suppliers', 'hall charges', 'tent charges'],
-    'food': ['food expense', 'food expenses', 'food/snacks', 'food', 'expenses', 'food expences', 'snacks', 'tiffin'],
-    'transport': ['transport', 'trans port', 'auto charges', 'auto', 'travelling', 'travel'],
-    'others': ['others/gifts', 'others / gifts', 'others / gift', 'others', 'gifts', 'saplaires', 'other', 'gift'],
-    'total': ['total amount', 'total', 'amount'],
-    'po_number': ['po number', 'po.no', 'ponumber', 'po #', 'po', 'po no']
+    'sl_no': [
+        'sl no', 'sl.no', 's no', 's.no', 'sno', 'si no', 'si.no', 's. no', 'sl. no', 'slno', 'serial no'
+    ],
+    'date': [
+        'date'
+    ],
+    'zdgm': [
+        'zdgm', 'zdgl', 'area manager', 'adgl', 'adg', 'dm', 'zdsm', 'manager', 'rbm', 'am', 'area manager/am', 'area manager / am'
+    ],
+    'tbm': [
+        'tbm name', 'tbm', 'name of the tbm', 'tbm/sc/so', 'sc/so', 'tbm / sc / so', 'mie', 'mie name'
+    ],
+    'mdo': [
+        'mdo name', 'mdo', 'mdo/fa', 'mdo / fa', 'fa name', 'field assistant'
+    ],
+    'territory': [
+        'territory', 'tbm territory', 'area', 'place', 'location', 'headquarter', 'hq'
+    ],
+    'product': [
+        'product name', 'product', 'item', 'brand'
+    ],
+    'crop': [
+        'crop', 'crops'
+    ],
+    'activity': [
+        'type of activity', 'activity name', 'activity', 'activities'
+    ],
+    'village': [
+        'village name', 'village', 'villages', 'town'
+    ],
+    'farmers': [
+        'no.of farmers', 'no of farmers', 'no. of farmers', 'n0 of farmers', 'no of rarmers',
+        'farmers attended', 'farmers', 'no of farmer', 'no.of farmer', 'farmer count', 'farmer', 'attendees'
+    ],
+    'tent': [
+        'tent/hall /chairs expenses', 'tent/hall/chairs', 'tent/hall suppliers charges', 'tent/hall  suppliers charges',
+        'tent/hall/supplairs charges', 'tent/ hall/ supplairs charges', 'tent/hall/chairs suppliers charges',
+        'tent/hall suppliers', 'tent / hall', 'tent/ hall', 'tent charges', 'hall charges',
+        'tent', 'hall', 'chairs', 'chair', 'chairs/ table/tent',
+        'supplier charges', 'supplier charge', 'suppliers charges', 'suppliers charge',
+        'suppliers/charges', 'supplier/charges', 'suppliers', 'supplier',
+        'supplairs charges', 'supplair charges', 'supplairs', 'supplair',
+        'tent supplirs', 'tent supplier', 'tent suppliers', 'supplirs', 'supplir',
+        'suppielers', 'suppieler', 'suppilers', 'suppiler', 'saplaires',
+        'sound', 'audio', 'mic', 'mike', 'projector', 'stage'
+    ],
+    'food': [
+        'food expense', 'food expenses', 'food expences', 'food/snacks', 'food / snacks',
+        'food', 'snacks', 'tiffin', 'refreshment', 'refreshments', 'lunch', 'dinner', 'meals'
+    ],
+    'transport': [
+        'transport', 'trans port', 'trans-port', 'auto charges', 'auto', 'travelling', 'travel',
+        'vehicle', 'cab', 'conveyance', 'diesel', 'petrol'
+    ],
+    'others': [
+        'others/gifts', 'others / gifts', 'others/gift', 'others / gift', 'others', 'gifts', 'gift',
+        'other', 'stationary', 'printing', 'misc', 'miscellaneous'
+    ],
+    'total': [
+        'total amount', 'total', 'amount'
+    ],
+    'po_number': [
+        'po number', 'po.no', 'ponumber', 'po #', 'po', 'po no'
+    ],
+    'status': [
+        'status', 'state', 'stage'
+    ]
 }
 
 STANDARD_TBM_HEADERS = [
