@@ -114,7 +114,7 @@ def generate_or_update_invoice(
         r_subtotal, r_grand = build_fmc_sheet1_invoice(
             ws_sheet1, full_iv, invoice_date, target_po, metadata, activity_groups, service_charge_pct, styles
         )
-        build_fmc_sheet2_details(ws_sheet2, short_iv, records, styles)
+        build_fmc_sheet2_details(ws_sheet2, short_iv, records, styles, service_charge_pct)
 
     wb.save(out_path)
     wb.close()

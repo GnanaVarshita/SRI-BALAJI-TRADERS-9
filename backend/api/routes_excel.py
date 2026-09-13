@@ -301,16 +301,19 @@ def handle_sync_tbm_cards(data):
         cards_path = Path(cards_path_str)
         tbm_path = Path(tbm_path_str)
 
+        force = bool(data.get("force", False))
+
         if not cards_path.exists() or not cards_path.is_file():
             return 400, {"success": False, "message": f"Cards summary file does not exist at: {cards_path_str}"}
-        if not tbm_path.exists() or not tbm_path.is_file():
-            return 400, {"success": False, "message": f"TBM summary file does not exist at: {tbm_path_str}"}
+        if not tbm_path.exists() or (not tbm_path.is_file() and not tbm_path.is_dir()):
+            return 400, {"success": False, "message": f"All-TBMs summary file or folder does not exist at: {tbm_path_str}"}
 
         res = card_sync_engine.sync_tbm_with_cards(
             cards_excel_path=cards_path,
             tbm_summary_excel_path=tbm_path,
             output_path=output_path_str if output_path_str else None,
-            service_charge_percent=sv_percent
+            service_charge_percent=sv_percent,
+            force=force
         )
         status_code = 200 if res.get("success") else 400
         return status_code, res

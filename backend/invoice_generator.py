@@ -45,6 +45,7 @@ from invoices.fmc import (
     build_fmc_sheet1_invoice,
     build_fmc_sheet2_details,
 )
+from invoices.summary_table import render_details_cumulative_summary_table
 from invoices.generator import generate_or_update_invoice
 
 __all__ = [
@@ -70,5 +71,6 @@ __all__ = [
     'render_fmc_invoice_block',
     'build_fmc_sheet1_invoice',
     'build_fmc_sheet2_details',
+    'render_details_cumulative_summary_table',
     'generate_or_update_invoice',
 ]

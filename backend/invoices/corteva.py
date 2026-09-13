@@ -8,6 +8,10 @@ from openpyxl.worksheet.pagebreak import Break
 from common.formatters import clean_str
 from common.currency import num_to_indian_words
 from common.styles import setup_page_print_fit, write_sbt_header_block, write_bank_and_signature_block
+try:
+    from .summary_table import render_details_cumulative_summary_table
+except ImportError:
+    from invoices.summary_table import render_details_cumulative_summary_table
 
 
 def render_corteva_invoice_block(ws, start_row, copy_type, invoice_no, invoice_date, po_number, metadata, activity_groups, service_charge_pct, styles):
@@ -360,6 +364,7 @@ def build_corteva_sheet2_details(ws, short_iv, records, service_charge_pct, styl
 
     current_r = 1
     iv_idx = 1
+    summary_items = []
 
     headers = [
         "S.No", "Date", "ZDGM", "TBM", "MDO", "Territory", "Product", "Crop", "Activity", "Village",
@@ -367,6 +372,16 @@ def build_corteva_sheet2_details(ws, short_iv, records, service_charge_pct, styl
     ]
 
     for act_name, tbm_dict in act_groups.items():
+        # Identify Product and Crop for this activity group
+        prod_val = ""
+        crop_val = ""
+        for rows_list in tbm_dict.values():
+            for row_item in rows_list:
+                if not prod_val and row_item.get('product'):
+                    prod_val = str(row_item.get('product')).strip()
+                if not crop_val and row_item.get('crop'):
+                    crop_val = str(row_item.get('crop')).strip()
+
         # Section Header: IV NO : 67 ( 1 ) across Columns 1 to 17 (A to Q)
         ws.merge_cells(start_row=current_r, start_column=1, end_row=current_r, end_column=17)
         c_iv = ws.cell(current_r, 1, f"IV NO : {short_iv} ( {iv_idx} )")
@@ -484,7 +499,22 @@ def build_corteva_sheet2_details(ws, short_iv, records, service_charge_pct, styl
             for c in range(1, 18):
                 ws.cell(r_box, c).border = styles['thin_border']
 
+        summary_items.append({
+            'product': prod_val,
+            'crop': crop_val,
+            'activity': act_name,
+            'subtot_ref': f"J{subtot_r}",
+            'sc_ref': f"J{sc_r}",
+            'tot_sc_ref': f"J{tot_sc_r}"
+        })
+
         current_r = tot_sc_r + 2
+
+    # Render Cumulative Summary Table at the end of Sheet2
+    if summary_items:
+        current_r = render_details_cumulative_summary_table(
+            ws, start_row=current_r + 1, summary_items=summary_items, service_charge_pct=service_charge_pct, styles=styles
+        )
 
 
 def build_corteva_summary_sheet(ws, invoice_no, invoice_date, po_number, metadata, po_value, r_subtotal, r_grand, styles):

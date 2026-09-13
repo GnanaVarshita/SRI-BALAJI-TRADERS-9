@@ -23,6 +23,13 @@ function SyncBalancesView() {
     });
   };
 
+  const handleBrowseTbmFolder = () => {
+    setErrorMsg(null);
+    tbmBrowser.browseFolder((folderPath) => {
+      setTbmSummaryPath(folderPath);
+    });
+  };
+
   const handleBrowseTbmFile = () => {
     setErrorMsg(null);
     tbmBrowser.browseFile((filePath) => {
@@ -37,7 +44,7 @@ function SyncBalancesView() {
       return;
     }
     if (!tbmSummaryPath) {
-      setErrorMsg('Please select the Consolidated Master TBM Summary Excel file.');
+      setErrorMsg('Please select the All-TBMs Summaries folder or file.');
       return;
     }
 
@@ -67,7 +74,7 @@ function SyncBalancesView() {
       <div className="view-header">
         <h2>Sync Spent &amp; Balances</h2>
         <p className="subtitle">
-          Synchronize TBM spent details from Consolidated Master TBM Summary into PO summary cards with automatic Service Charges &amp; Balance formulas, reflecting balances in Sheet 1 master overview.
+          Synchronize TBM spent details from All-TBMs Summaries into PO summary cards with automatic Service Charges &amp; Balance formulas, preserving previous sync data and marking synced rows as DONE.
         </p>
       </div>
 
@@ -76,29 +83,98 @@ function SyncBalancesView() {
         <div className="card">
           <h2>Input Workbooks &amp; Service Charges</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-            Select the PO Cards Excel and the Consolidated Master TBM Summary Excel.
+            Select the destination PO Cards Excel and the folder (or file) of All-TBMs summaries.
           </p>
 
           <form onSubmit={handleSyncBalances} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <BrowseField
-              label="1. PO Cards Summary Excel File (e.g. Nandyala FMC Budget.xlsx)"
+              label="1. PO Cards Summary Excel File (e.g. June 2 Nellore.xlsx or Nandyala FMC Budget.xlsx)"
               value={cardsSummaryPath}
               onChange={(e) => setCardsSummaryPath(e.target.value)}
               onBrowse={handleBrowseCardsFile}
               browseLoading={cardsBrowser.loading}
               disabled={loading}
-              placeholder="Select PO Summary workbook with cards (e.g. Nandyala FMC Budget.xlsx)..."
+              placeholder="Select PO Summary workbook with cards (e.g. June 2 Nellore.xlsx)..."
             />
 
-            <BrowseField
-              label="2. Consolidated Master TBM Summary Excel File (e.g. NANDYALA-All-TBMs-Summary.xlsx)"
-              value={tbmSummaryPath}
-              onChange={(e) => setTbmSummaryPath(e.target.value)}
-              onBrowse={handleBrowseTbmFile}
-              browseLoading={tbmBrowser.loading}
-              disabled={loading}
-              placeholder="Select Consolidated Master TBM Summary with TBM Amount Summary sheet..."
-            />
+            {/* Field 2 with Dual Browse (Folder or File) */}
+            <div className="form-group">
+              <label>2. All-TBMs Summaries Folder or File (e.g. Nellore All TBMs Master Summary 2026-27/)</label>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                <textarea 
+                  rows={1}
+                  value={tbmSummaryPath} 
+                  onChange={(e) => setTbmSummaryPath(e.target.value)} 
+                  placeholder="Select folder containing All-TBMs summary Excels, or a single master summary file..."
+                  required
+                  disabled={loading}
+                  className="path-input-textarea"
+                  style={{ 
+                    flex: 1, 
+                    minHeight: '42px',
+                    resize: 'vertical',
+                    wordBreak: 'break-all',
+                    overflowWrap: 'anywhere',
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'Consolas, "Courier New", monospace, sans-serif',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.4',
+                    padding: '0.65rem 0.75rem'
+                  }}
+                />
+                <button 
+                  type="button" 
+                  onClick={handleBrowseTbmFolder} 
+                  disabled={tbmBrowser.loading || loading}
+                  style={{ 
+                    width: 'auto', 
+                    whiteSpace: 'nowrap', 
+                    backgroundColor: 'var(--primary-color)', 
+                    color: '#fff', 
+                    border: 'none',
+                    minHeight: '42px',
+                    padding: '0.65rem 1rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                    borderRadius: '6px',
+                    fontWeight: '600',
+                    cursor: (tbmBrowser.loading || loading) ? 'not-allowed' : 'pointer'
+                  }}
+                  title="Browse folder containing multiple All-TBMs summaries"
+                >
+                  📁 Folder
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleBrowseTbmFile} 
+                  disabled={tbmBrowser.loading || loading}
+                  style={{ 
+                    width: 'auto', 
+                    whiteSpace: 'nowrap', 
+                    backgroundColor: '#4b5563', 
+                    color: '#fff', 
+                    border: 'none',
+                    minHeight: '42px',
+                    padding: '0.65rem 1rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                    borderRadius: '6px',
+                    fontWeight: '600',
+                    cursor: (tbmBrowser.loading || loading) ? 'not-allowed' : 'pointer'
+                  }}
+                  title="Browse single All-TBMs summary file"
+                >
+                  📄 File
+                </button>
+              </div>
+              <small style={{ display: 'block', marginTop: '0.35rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                💡 You can select a folder with multiple All-TBMs Excels. Un-synced tables will be synced and marked as <strong>DONE</strong> in Column R.
+              </small>
+            </div>
 
             <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
               <div style={{ flex: 1 }}>
@@ -143,11 +219,11 @@ function SyncBalancesView() {
             >
               <strong>📌 Automatic Operations Performed:</strong>
               <ul style={{ margin: '0.4rem 0 0 1.1rem', padding: 0 }}>
-                <li>Populates card data rows with TBM spent amounts under matching activity columns.</li>
-                <li>Leaves <code>I.V NO</code> and <code>DATE</code> columns blank for invoice verification.</li>
+                <li><strong>Non-Destructive Append:</strong> Preserves previous data from earlier syncs and appends new rows below them.</li>
+                <li><strong>Status Checkpoint:</strong> Skips tables already marked as <code>DONE</code> in Column R; marks synced tables as <code>DONE</code>.</li>
+                <li>Leaves <code>I.V NO</code> and <code>DATE</code> blank for invoice verification.</li>
                 <li>Generates sum formulas for table totals and right summary blocks.</li>
                 <li>Calculates <code>SV Charges</code>, <code>TOTAL IV</code>, and <code>BALANCE</code> per activity.</li>
-                <li>Links <code>Spent Budget</code> and <code>Balance</code> in <strong>Sheet 1</strong> master overview.</li>
               </ul>
             </div>
 
@@ -179,7 +255,7 @@ function SyncBalancesView() {
               </div>
               <h3>Synchronizing PO Cards &amp; Balances...</h3>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                Reading TBM expended details, injecting card data rows, and applying formulas for Service Charges ({serviceChargePercent}%), Total IV, and Balances.
+                Scanning All-TBMs summaries, appending new spendings into available rows, and applying formulas for Service Charges ({serviceChargePercent}%), Total IV, and Balances.
               </p>
             </div>
           ) : result ? (
@@ -213,15 +289,15 @@ function SyncBalancesView() {
                   </div>
                 </div>
                 <div style={{ background: 'var(--bg-hover)', padding: '0.65rem', borderRadius: '6px' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Service Charges</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Activities Synced</span>
                   <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
-                    {result.serviceChargePercent}%
+                    {result.syncedRecords || 0}
                   </div>
                 </div>
                 <div style={{ background: 'var(--bg-hover)', padding: '0.65rem', borderRadius: '6px' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Formulas Created</span>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
-                    Spent + SV = Total IV
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Files Marked DONE</span>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                    {result.markedFilesCount || 0}
                   </div>
                 </div>
               </div>
@@ -232,7 +308,7 @@ function SyncBalancesView() {
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '4rem 1rem' }}>
               <h3>Ready to Synchronize</h3>
               <p style={{ marginTop: '0.5rem' }}>
-                Select the PO cards summary workbook and consolidated TBM summary workbook on the left, then click <strong>Synchronize Spent &amp; Balances</strong>.
+                Select the destination PO cards workbook and the All-TBMs summaries folder or file on the left, then click <strong>Synchronize Spent &amp; Balances</strong>.
               </p>
             </div>
           )}

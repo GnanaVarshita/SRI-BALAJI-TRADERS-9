@@ -8,6 +8,10 @@ from openpyxl.worksheet.pagebreak import Break
 from common.formatters import clean_str
 from common.currency import num_to_indian_words
 from common.styles import setup_page_print_fit, write_sbt_header_block, write_bank_and_signature_block
+try:
+    from .summary_table import render_details_cumulative_summary_table
+except ImportError:
+    from invoices.summary_table import render_details_cumulative_summary_table
 
 
 def render_fmc_invoice_block(ws, start_row, copy_type, invoice_no, invoice_date, po_number, metadata, activity_groups, service_charge_pct, styles):
@@ -364,7 +368,7 @@ def build_fmc_sheet1_invoice(ws, invoice_no, invoice_date, po_number, metadata, 
     return r_subtotal, r_grand
 
 
-def build_fmc_sheet2_details(ws, short_iv, records, styles):
+def build_fmc_sheet2_details(ws, short_iv, records, styles, service_charge_pct=5.0):
     """
     Builds Sheet2 for FMC matching SS5 layout with PO Number column included:
     Grouped by Territory tables with header IV NO : {IV} and bottom sum formula =P7+P17.
@@ -498,3 +502,33 @@ def build_fmc_sheet2_details(ws, short_iv, records, styles):
 
     for c in range(3, 6):
         ws.cell(bottom_r, c).border = styles['box_border']
+
+    # Build and render cumulative summary table at the end of Sheet2
+    fmc_summary_map = {}
+    for r in records:
+        prod = clean_str(r.get('product', '')).title() or "General"
+        crop = clean_str(r.get('crop', '')).title() or ""
+        act = clean_str(r.get('activity', '')).upper() or "GENERAL"
+        key = (prod, crop, act)
+        if key not in fmc_summary_map:
+            fmc_summary_map[key] = 0.0
+        fmc_summary_map[key] += float(r.get('total', 0.0) or 0.0)
+
+    fmc_summary_items = []
+    sc_rate = service_charge_pct / 100.0
+    for (prod, crop, act), raw_amt in fmc_summary_map.items():
+        vc = round(raw_amt * sc_rate, 2)
+        fmc_summary_items.append({
+            'product': prod,
+            'crop': crop,
+            'activity': act,
+            'raw_amount': raw_amt,
+            'vendor_charges': vc,
+            'total_amount': raw_amt + vc
+        })
+
+    if fmc_summary_items:
+        render_details_cumulative_summary_table(
+            ws, start_row=bottom_r + 2, summary_items=fmc_summary_items,
+            service_charge_pct=service_charge_pct, styles=styles
+        )
