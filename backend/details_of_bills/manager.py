@@ -23,25 +23,66 @@ from .extractor import extract_invoice_file_data
 from .cards_updater import update_budget_po_summary_cards
 
 
+def get_details_of_bills_sheet(wb):
+    """
+    Finds and returns Sheet 1 (the bill entries worksheet) in Details of Bills workbook.
+    NEVER returns Sheet 2 or secondary summary/dashboard sheets.
+    """
+    # 1. Exact match for 'Sheet1' or 'Sheet 1'
+    for name in ['Sheet1', 'Sheet 1']:
+        if name in wb.sheetnames:
+            return wb[name]
+
+    # 2. Find any sheet with Details of Bills header (e.g. 'I.V NO' or 'IV NO')
+    # strictly ignoring 'Sheet2' or 'Sheet 2'
+    for name in wb.sheetnames:
+        if name.strip().lower() in ['sheet2', 'sheet 2']:
+            continue
+        ws_candidate = wb[name]
+        for r in range(1, 10):
+            for c in range(1, 10):
+                val = clean_str(ws_candidate.cell(r, c).value).upper().replace(".", "").replace(" ", "")
+                if "IVNO" in val:
+                    return ws_candidate
+
+    # 3. Fallback to first sheet if not Sheet2
+    if len(wb.worksheets) > 0 and wb.worksheets[0].title.strip().lower() not in ['sheet2', 'sheet 2']:
+        return wb.worksheets[0]
+
+    # 4. If no valid Sheet1 exists, create one as the first sheet
+    return wb.create_sheet(title='Sheet1', index=0)
+
+
 def create_or_load_details_of_bills_wb(file_path, financial_year="APRIL 2026 to MARCH 2027"):
     """
     Initializes a new Details of Bills workbook if not present or empty, matching SS1 structure.
+    Always operates strictly on Sheet 1 and never touches Sheet 2.
     """
     target = Path(file_path).resolve()
     styles = get_details_styles()
 
     if target.exists():
-        wb = load_any_workbook(target)
-        ws = wb.active
-        if ws.max_row >= 4 and any(clean_str(ws.cell(4, c).value) for c in range(1, 10)):
+        try:
+            wb = openpyxl.load_workbook(target, data_only=False)
+        except Exception:
+            wb = load_any_workbook(target)
+        ws = get_details_of_bills_sheet(wb)
+        # Check if ws already has headers (row 4 or rows 1-6)
+        has_headers = False
+        for r in range(1, 10):
+            for c in range(1, 10):
+                val = clean_str(ws.cell(r, c).value).upper().replace(".", "").replace(" ", "")
+                if "IVNO" in val:
+                    has_headers = True
+                    break
+            if has_headers:
+                break
+        if has_headers:
             return wb, ws, False
     else:
         wb = openpyxl.Workbook()
-        if "Sheet" in wb.sheetnames:
-            ws = wb["Sheet"]
-            ws.title = "Sheet1"
-        else:
-            ws = wb.create_sheet(title="Sheet1", index=0)
+        ws = get_details_of_bills_sheet(wb)
+        ws.title = "Sheet1"
 
     # Initialize full SS1 structure
     ws.views.sheetView[0].showGridLines = True
@@ -90,8 +131,8 @@ def create_or_load_details_of_bills_wb(file_path, financial_year="APRIL 2026 to 
     ws['O3'] = "=SUM(O5:O5)"
     ws['Q3'] = "=SUM(Q5:Q5)"
     ws['R3'] = "=SUM(R5:R5)"
-    ws['T3'] = "=SUM(T5:T5)"
-    ws['U3'] = "=SUM(U5:U5)"
+    ws['T3'] = "=O3-Q3-R3"
+    ws['U3'] = "=Q3+R3+T3"
 
     for c_idx in [12, 13, 14, 15, 17, 18, 20, 21]:
         cell = ws.cell(3, c_idx)
@@ -178,9 +219,9 @@ def scan_and_append_invoices(
     skipped_invoices = []
     total_new_rows = 0
 
-    current_r = max(5, ws.max_row + 1)
-    for check_r in range(5, ws.max_row + 2):
-        if not any(ws.cell(check_r, c).value for c in range(1, 15)):
+    current_r = 5
+    for check_r in range(5, max(ws.max_row + 2, 6)):
+        if not any(clean_str(ws.cell(check_r, c).value) for c in range(1, 15)):
             current_r = check_r
             break
 
@@ -265,8 +306,11 @@ def scan_and_append_invoices(
     ws['O3'] = f"=SUM(O5:O{final_max_r})"
     ws['Q3'] = f"=SUM(Q5:Q{final_max_r})"
     ws['R3'] = f"=SUM(R5:R{final_max_r})"
-    ws['T3'] = f"=SUM(T5:T{final_max_r})"
-    ws['U3'] = f"=SUM(U5:U{final_max_r})"
+    ws['T3'] = "=O3-Q3-R3"
+    ws['U3'] = "=Q3+R3+T3"
+
+    # Always ensure Sheet1 is active when saving workbook so Sheet2 is never active or exposed
+    wb.active = ws
 
     out_details_path = Path(details_excel_path).resolve()
     out_details_path.parent.mkdir(parents=True, exist_ok=True)

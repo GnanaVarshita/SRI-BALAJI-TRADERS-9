@@ -289,6 +289,97 @@ class TestCardSyncEngine(unittest.TestCase):
         self.assertEqual(res2["skippedFilesCount"], 2)
         self.assertEqual(res2["updatedCards"], 0)
 
+    def test_corteva_right_summary_preservation_and_totals(self):
+        """Test that Right Summary table (Cols T-Y) and Row 29 column sums are fully computed."""
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Herbi (MKTG)"
+
+        # PO header
+        ws.cell(6, 1, "4800110294")
+        ws.cell(7, 4, "Bhaskar - Nellore")
+
+        # Activity headers in row 10
+        headers_10 = ["MFM (RGL)", 0, "FD", 0, 0, "BVC", None, "Amount"]
+        for idx, h in enumerate(headers_10):
+            ws.cell(10, 12 + idx, h)
+
+        # Right Summary table at rows 15-22
+        ws.cell(15, 20, "Activities")
+        ws.cell(15, 21, "BUDGET")
+        ws.cell(15, 22, "SPENT")
+        ws.cell(15, 23, "SV Charges")
+        ws.cell(15, 24, "TOTAL IV")
+        ws.cell(15, 25, "BALANCE")
+
+        activities = [
+            ("MFM (RGL)", 180000),
+            (0, 0),
+            ("FD", 36000),
+            (0, 0),
+            (0, 0),
+            ("BVC", 115500),
+        ]
+        for i, (act, bgt) in enumerate(activities):
+            r = 16 + i
+            ws.cell(r, 20, act)
+            ws.cell(r, 21, bgt)
+
+        ws.cell(22, 20, "TOTAL")
+
+        # Existing row 12
+        ws.cell(12, 1, 45)
+        ws.cell(12, 12, 50000)
+
+        tbm_data = {
+            "4800110294": [
+                {
+                    "tbm": "Pradeep",
+                    "product": "Herbicides",
+                    "crop": "Paddy",
+                    "activity": "FD",
+                    "num_activities": 2,
+                    "total_amount": 10000,
+                    "area": "Nellore",
+                    "zdgm": "Bhaskar"
+                }
+            ]
+        }
+
+        updated = sync_corteva_cards_workbook(wb, tbm_data, service_charge_percent=5.0)
+        self.assertEqual(updated, 1)
+
+        # Row 29 column sums
+        self.assertEqual(ws.cell(29, 12).value, "=SUM(L12:L28)")
+        self.assertEqual(ws.cell(29, 14).value, "=SUM(N12:N28)")
+        self.assertEqual(ws.cell(29, 17).value, "=SUM(Q12:Q28)")
+        self.assertEqual(ws.cell(29, 19).value, "=SUM(S12:S28)")
+
+        # Right Summary rows 16..21
+        self.assertEqual(ws.cell(16, 22).value, "=L29")
+        self.assertEqual(ws.cell(16, 23).value, "=V16*0.05")
+        self.assertEqual(ws.cell(16, 24).value, "=V16+W16")
+        self.assertEqual(ws.cell(16, 25).value, "=U16-X16")
+
+        self.assertEqual(ws.cell(18, 22).value, "=N29")
+        self.assertEqual(ws.cell(18, 23).value, "=V18*0.05")
+
+        # BVC in row 21: SV Charges should remain None when not present initially
+        self.assertEqual(ws.cell(21, 22).value, "=Q29")
+        self.assertIsNone(ws.cell(21, 23).value)
+        self.assertEqual(ws.cell(21, 24).value, "=V21+W21")
+        self.assertEqual(ws.cell(21, 25).value, "=U21-X21")
+
+        # TOTAL in row 22
+        self.assertEqual(ws.cell(22, 20).value, "TOTAL")
+        self.assertEqual(ws.cell(22, 21).value, "=SUM(U16:U21)")
+        self.assertEqual(ws.cell(22, 22).value, "=SUM(V16:V21)")
+        self.assertEqual(ws.cell(22, 23).value, "=SUM(W16:W21)")
+        self.assertEqual(ws.cell(22, 24).value, "=SUM(X16:X21)")
+        self.assertEqual(ws.cell(22, 25).value, "=SUM(Y16:Y21)")
+
+        wb.close()
+
 
 if __name__ == "__main__":
     unittest.main()

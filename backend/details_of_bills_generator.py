@@ -24,6 +24,7 @@ from common.styles import get_details_styles
 from details_of_bills.extractor import extract_invoice_file_data
 from details_of_bills.cards_updater import update_budget_po_summary_cards
 from details_of_bills.manager import (
+    get_details_of_bills_sheet,
     create_or_load_details_of_bills_wb,
     scan_and_append_invoices,
 )
@@ -36,6 +37,7 @@ __all__ = [
     'calculate_receivable_date',
     'normalize_po',
     'get_details_styles',
+    'get_details_of_bills_sheet',
     'create_or_load_details_of_bills_wb',
     'extract_invoice_file_data',
     'update_budget_po_summary_cards',

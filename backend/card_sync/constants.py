@@ -41,10 +41,19 @@ ACTIVITY_NORMALIZATION = {
     'GROUP MEETING (RGL)': 'GM_RGL',
     'G.M (RGL)': 'GM_RGL',
     'GM(RGL)': 'GM_RGL',
+    'GM (RGL)': 'GM_RGL',
+    'RGL': 'GM_RGL',
     'GROUP MEETING (REGULAR)': 'GM_REGULAR',
     'GROUP MEETING (RGULAR)': 'GM_REGULAR',
     'G.M (REGULAR)': 'GM_REGULAR',
     'GM(REGULAR)': 'GM_REGULAR',
+    'GM (REGULAR)': 'GM_REGULAR',
+    'G.M (REG)': 'GM_REGULAR',
+    'GM (REG)': 'GM_REGULAR',
+    'GROUP MEETING': 'GM_REGULAR',
+    'GM': 'GM_REGULAR',
+    'REGULAR': 'GM_REGULAR',
+    'REG': 'GM_REGULAR',
     'DEMO ACTIVITY': 'DA',
     'DEMONSTRATION ACTIVITY': 'DA',
     'DA': 'DA',
@@ -88,8 +97,8 @@ def normalize_activity(act):
         return 'LFM'
     if 'HARVEST' in s or clean == 'HD':
         return 'HD'
-    if 'GROUP' in s or 'G.M' in s or 'GM' in s:
-        if 'REG' in s and 'RGL' not in s:
+    if 'GROUP' in s or 'G.M' in s or 'GM' in s or s in ['RGL', 'REGULAR', 'REG']:
+        if ('REG' in s or 'REGULAR' in s) and 'RGL' not in s:
             return 'GM_REGULAR'
         return 'GM_RGL'
     if 'VILLAGE' in s or 'OFM' in s:
@@ -104,22 +113,35 @@ def normalize_activity(act):
 def match_activity_to_column(tbm_activity, col_mapping):
     """
     Matches a TBM activity string to one of the columns in col_mapping (dict of norm_act -> col_idx).
-    Returns target column index, or default fallback column (e.g. first available or 12).
+    Returns target column index, or None if no match is found.
     """
+    if not tbm_activity or not col_mapping:
+        return None
+
     norm_target = normalize_activity(tbm_activity)
+    if not norm_target:
+        return None
+
     if norm_target in col_mapping:
         return col_mapping[norm_target]
 
     clean_target = clean_alphanumeric(norm_target)
+    if not clean_target:
+        return None
+
+    # 1. Exact clean match
     for mapped_act, col_idx in col_mapping.items():
         if clean_target == clean_alphanumeric(mapped_act):
             return col_idx
-        if clean_target in clean_alphanumeric(mapped_act) or clean_alphanumeric(mapped_act) in clean_target:
-            return col_idx
 
-    # Return first mapped column or None
-    if col_mapping:
-        return next(iter(col_mapping.values()))
+    # 2. Substring match (require min 3 chars to prevent false positive short matches)
+    if len(clean_target) >= 3:
+        for mapped_act, col_idx in col_mapping.items():
+            clean_mapped = clean_alphanumeric(mapped_act)
+            if len(clean_mapped) >= 3:
+                if clean_target in clean_mapped or clean_mapped in clean_target:
+                    return col_idx
+
     return None
 
 # Styling constants

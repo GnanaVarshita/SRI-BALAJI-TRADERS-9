@@ -59,8 +59,11 @@ def sync_tbm_with_cards(cards_excel_path, tbm_summary_excel_path, output_path=No
             "outputPath": str(cards_file)
         }
 
-    # 2. Load Cards Workbook
-    wb_cards = load_any_workbook(cards_file)
+    # 2. Load Cards Workbook (preserve formulas with data_only=False)
+    try:
+        wb_cards = openpyxl.load_workbook(cards_file, data_only=False)
+    except Exception:
+        wb_cards = load_any_workbook(cards_file)
 
     # Determine if FMC (stacked 19-row cards) or Corteva (product sheets)
     is_fmc_structure = False

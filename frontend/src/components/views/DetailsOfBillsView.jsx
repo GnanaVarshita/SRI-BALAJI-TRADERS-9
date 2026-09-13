@@ -7,7 +7,6 @@ import { useFileBrowser } from '../../hooks/useFileBrowser';
 function DetailsOfBillsView() {
   const [detailsExcelPath, setDetailsExcelPath] = useState('');
   const [invoicesFolderPath, setInvoicesFolderPath] = useState('');
-  const [budgetCardsPath, setBudgetCardsPath] = useState('');
   const [financialYear, setFinancialYear] = useState('APRIL 2026 to MARCH 2027');
 
   const [loading, setLoading] = useState(false);
@@ -16,7 +15,6 @@ function DetailsOfBillsView() {
 
   const detailsBrowser = useFileBrowser();
   const invoicesBrowser = useFileBrowser();
-  const cardsBrowser = useFileBrowser();
 
   const handleBrowseDetailsFile = () => {
     setErrorMsg(null);
@@ -29,13 +27,6 @@ function DetailsOfBillsView() {
     setErrorMsg(null);
     invoicesBrowser.browseFolder((folderPath) => {
       setInvoicesFolderPath(folderPath);
-    });
-  };
-
-  const handleBrowseCardsFile = () => {
-    setErrorMsg(null);
-    cardsBrowser.browseFile((filePath) => {
-      setBudgetCardsPath(filePath);
     });
   };
 
@@ -58,7 +49,6 @@ function DetailsOfBillsView() {
       const data = await api.syncDetailsOfBills({
         detailsExcelPath: detailsExcelPath.trim(),
         invoicesFolderPath: invoicesFolderPath.trim(),
-        budgetCardsPath: budgetCardsPath.trim() || undefined,
         financialYear: financialYear.trim() || 'APRIL 2026 to MARCH 2027',
       });
       setResult(data);
@@ -73,15 +63,14 @@ function DetailsOfBillsView() {
   const activeError =
     errorMsg ||
     detailsBrowser.error ||
-    invoicesBrowser.error ||
-    cardsBrowser.error;
+    invoicesBrowser.error;
 
   return (
     <div className="view-container">
       <div className="view-header">
-        <h2>Details of Bills &amp; Cards Sync</h2>
+        <h2>Details of Bills</h2>
         <p className="subtitle">
-          Consolidate raised tax invoices into Master Details of Bills (Sheet 1) matching the official layout, with smart deduplication and automatic synchronization of IV numbers &amp; dates into Budget PO summary cards.
+          Consolidate raised tax invoices into Master Details of Bills (Sheet 1) matching the official layout, with smart deduplication and top summary formulas.
         </p>
       </div>
 
@@ -100,11 +89,10 @@ function DetailsOfBillsView() {
             <BrowseField
               label="1. Details of Bills Master Excel File"
               value={detailsExcelPath}
-              onChange={setDetailsExcelPath}
+              onChange={(e) => setDetailsExcelPath(e.target.value)}
               onBrowse={handleBrowseDetailsFile}
-              loading={detailsBrowser.loading}
+              browseLoading={detailsBrowser.loading}
               placeholder="e.g. D:\SRIBALAJITRADERS9\Details of Bills 2026 TO 2027.xlsx"
-              helpText="Select existing master file or enter a new path. If empty, the table format and top summary formulas will be created automatically."
               required
             />
 
@@ -112,23 +100,11 @@ function DetailsOfBillsView() {
             <BrowseField
               label="2. Raised Invoices Folder"
               value={invoicesFolderPath}
-              onChange={setInvoicesFolderPath}
+              onChange={(e) => setInvoicesFolderPath(e.target.value)}
               onBrowse={handleBrowseInvoicesFolder}
-              loading={invoicesBrowser.loading}
-              placeholder="e.g. D:\SRIBALAJITRADERS9\Invoices"
-              helpText="Select the folder containing newly created tax invoice Excel (.xlsx) files to be scanned and appended."
+              browseLoading={invoicesBrowser.loading}
+              placeholder="e.g. D:\SRIBALAJITRADERS9\BILLING COPIES\April to March 2026 TO 2027\September 2026"
               required
-            />
-
-            {/* Budget PO Summary Cards Path (Optional) */}
-            <BrowseField
-              label="3. Budget PO Summary Cards Excel (Optional)"
-              value={budgetCardsPath}
-              onChange={setBudgetCardsPath}
-              onBrowse={handleBrowseCardsFile}
-              loading={cardsBrowser.loading}
-              placeholder="e.g. D:\SRIBALAJITRADERS9\Nandyala FMC Budget.xlsx"
-              helpText="Optional: If selected, the program will automatically populate the IV Number (Col A) and Date (Col B) in matching PO cards."
             />
 
             {/* Financial Year / Header Title */}
@@ -199,7 +175,7 @@ function DetailsOfBillsView() {
                 </>
               ) : (
                 <>
-                  <span>📑</span> Sync Invoices to Details of Bills &amp; Cards
+                  <span>📑</span> Sync Invoices to Details of Bills
                 </>
               )}
             </button>

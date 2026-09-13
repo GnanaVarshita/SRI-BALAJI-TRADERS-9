@@ -28,7 +28,11 @@ def update_budget_po_summary_cards(cards_excel_path, invoice_records_list):
     if not cards_file.exists():
         return {"success": False, "message": f"Cards file not found: {cards_excel_path}"}
 
-    wb = load_any_workbook(cards_file)
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(cards_file, data_only=False)
+    except Exception:
+        wb = load_any_workbook(cards_file)
     styles = get_details_styles()
 
     cards_updated = 0

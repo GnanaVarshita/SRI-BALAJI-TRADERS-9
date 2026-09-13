@@ -280,5 +280,43 @@ class TestDetailsOfBills(unittest.TestCase):
         self.assertEqual(ws_bills["P7"].value, "16-10-2026") # 01-09-2026 + 45 days
         wb_bills.close()
 
+    def test_06_sheet2_isolation_and_formula_preservation(self):
+        # 1. Add a Sheet2 with custom summary formulas and set Sheet2 as active
+        wb = openpyxl.load_workbook(self.details_excel_path, data_only=False)
+        if "Sheet2" not in wb.sheetnames:
+            ws2 = wb.create_sheet(title="Sheet2")
+        else:
+            ws2 = wb["Sheet2"]
+        ws2.cell(1, 1, "Corteva Remaining Tbms Amount")
+        ws2.cell(4, 7, "=Sheet1!O3")
+        ws2.cell(4, 8, "=Sheet1!Q3")
+        ws2.cell(4, 10, "=G4-H4-I4")
+        wb.active = ws2  # Simulate user saving file with Sheet2 active
+        wb.save(self.details_excel_path)
+        wb.close()
+
+        # 2. Run sync
+        res = details_of_bills_generator.scan_and_append_invoices(
+            details_excel_path=str(self.details_excel_path),
+            invoices_folder_path=str(self.invoices_dir),
+            financial_year="APRIL 2026 to MARCH 2027"
+        )
+        self.assertTrue(res["success"])
+
+        # 3. Verify Sheet2 was NOT modified and Sheet1 remains active
+        wb_check = openpyxl.load_workbook(self.details_excel_path, data_only=False)
+        self.assertEqual(wb_check.active.title, "Sheet1")
+        ws2_check = wb_check["Sheet2"]
+        self.assertEqual(ws2_check.max_row, 4)
+        self.assertEqual(ws2_check.cell(4, 7).value, "=Sheet1!O3")
+        self.assertEqual(ws2_check.cell(4, 8).value, "=Sheet1!Q3")
+        self.assertEqual(ws2_check.cell(4, 10).value, "=G4-H4-I4")
+
+        # Verify Sheet1 formulas
+        ws1_check = wb_check["Sheet1"]
+        self.assertEqual(ws1_check["T3"].value, "=O3-Q3-R3")
+        self.assertEqual(ws1_check["U3"].value, "=Q3+R3+T3")
+        wb_check.close()
+
 if __name__ == "__main__":
     unittest.main()
