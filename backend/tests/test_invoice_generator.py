@@ -408,5 +408,54 @@ class TestInvoiceGenerator(unittest.TestCase):
         self.assertTrue(res2["isUpdate"])
         self.assertIn("updated & appended", res2["message"])
 
+    def test_sheet2_cumulative_summary_table(self):
+        """Test that Sheet2 contains the cumulative expenses and vendor charges summary table at the end."""
+        res = invoice_generator.generate_or_update_invoice(
+            company="Corteva",
+            tbm_summary_path=str(self.corteva_summary_path),
+            save_folder_path=str(self.save_dir),
+            invoice_number="67",
+            po_number="4800108503",
+            service_charge_pct=5.0
+        )
+        self.assertTrue(res["success"])
+        wb = openpyxl.load_workbook(res["outputPath"])
+        ws2 = wb["Sheet2"]
+
+        # Find the summary table title
+        found_title_row = None
+        for r in range(1, ws2.max_row + 1):
+            val = ws2.cell(r, 6).value
+            if val and "CUMULATIVE EXPENSES & VENDOR CHARGES SUMMARY" in str(val):
+                found_title_row = r
+                break
+
+        self.assertIsNotNone(found_title_row, "Summary table title not found on Sheet2")
+
+        # Check headers at found_title_row + 1
+        hdr_r = found_title_row + 1
+        self.assertEqual(ws2.cell(hdr_r, 6).value, "S.No")
+        self.assertEqual(ws2.cell(hdr_r, 7).value, "Product")
+        self.assertEqual(ws2.cell(hdr_r, 8).value, "Crop")
+        self.assertEqual(ws2.cell(hdr_r, 9).value, "Activity")
+        self.assertEqual(ws2.cell(hdr_r, 10).value, "Cumulative Value")
+        self.assertEqual(ws2.cell(hdr_r, 11).value, "Vendor Charges (5%)")
+        self.assertEqual(ws2.cell(hdr_r, 12).value, "Total Amount")
+
+        # Find GRAND TOTAL row
+        grand_r = None
+        for r in range(hdr_r + 1, ws2.max_row + 1):
+            val = ws2.cell(r, 6).value
+            if val == "GRAND TOTAL":
+                grand_r = r
+                break
+
+        self.assertIsNotNone(grand_r, "GRAND TOTAL row not found in summary table")
+        self.assertTrue(str(ws2.cell(grand_r, 10).value).startswith("=SUM("))
+        self.assertTrue(str(ws2.cell(grand_r, 11).value).startswith("=SUM("))
+        self.assertTrue(str(ws2.cell(grand_r, 12).value).startswith("=SUM("))
+
+        wb.close()
+
 if __name__ == "__main__":
     unittest.main()
